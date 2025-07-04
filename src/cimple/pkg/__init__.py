@@ -1,7 +1,4 @@
-import cimple.pkg.pkg_config as pkg_config
 import cimple.common.image as image
-
-import tomllib
 
 
 def build_pkg():

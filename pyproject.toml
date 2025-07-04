@@ -8,10 +8,10 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = ["pydantic", "typer", "requests"]
+dependencies = ["pydantic", "typer", "requests", "zstandard"]
 
 [project.optional-dependencies]
-dev = ["pytest", "ruff"]
+dev = ["pytest", "ruff", "pyright"]
 
 [project.scripts]
 cimple = "cimple.main:main"
