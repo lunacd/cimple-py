@@ -13,7 +13,7 @@ import zstandard
 import cimple.common as common
 
 # TODO: extract this to a config file
-msys2_packages = ["bash", "gcc", "make"]
+msys2_packages = ["bash", "gcc", "make", "coreutils", "sed", "msys2-runtime"]
 
 
 def pkg_info_from_filename(filename: str) -> tuple[str, str]:
