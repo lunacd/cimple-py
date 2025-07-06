@@ -1,3 +1,4 @@
+import pathlib
 import tarfile
 import shutil
 import requests
@@ -17,7 +18,7 @@ def get_image(image_name: str):
     open(target_path, "wb").write(r.content)
 
 
-def prepare_image(platform: str, arch: str, variant: str):
+def prepare_image(platform: str, arch: str, variant: str) -> pathlib.Path:
     if not constants.cimple_image_dir.is_dir():
         constants.cimple_image_dir.mkdir(parents=True)
 
@@ -30,6 +31,8 @@ def prepare_image(platform: str, arch: str, variant: str):
             "r:gz",
         ) as tar:
             tar.extractall(path=target_path)
+
+    return target_path
 
 
 def clean_images():

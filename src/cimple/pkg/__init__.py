@@ -16,7 +16,9 @@ def build_pkg():
     #     config = pkg_config.PkgConfig.model_validate(config_dict)
 
     # Prepare chroot image
-    common.image.prepare_image("windows", "x86_64", "bootstrap_msys")
+    image_path = common.image.prepare_image("windows", "x86_64", "bootstrap_msys")
+
+    # TODO: parepare dependency tree
 
     # Ensure needed directories exist
     if not common.constants.cimple_orig_dir.exists():
@@ -38,3 +40,8 @@ def build_pkg():
         shutil.rmtree(build_dir)
     with tarfile.open(orig_file, "r:gz") as tar:
         common.tarfile.extract_directory_from_tar(tar, "make-4.4", build_dir)
+
+    commands = [["bash", "./configure"]]
+
+    for command in commands:
+        common.cmd.run_command(command, image_path=image_path, dependency_path=None, cwd=build_dir)
