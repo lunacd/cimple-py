@@ -1,8 +1,16 @@
 import logging
+import os
 
 logger = logging.getLogger("cimple")
-logger.setLevel(logging.INFO)
+if "CIMPLE_DEBUG" in os.environ is not None and os.environ["CIMPLE_DEBUG"] != "":
+    logger.setLevel(logging.DEBUG)
+else:
+    logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler())
+
+
+def debug(msg: str, *args):
+    logger.debug(msg, *args)
 
 
 def info(msg: str, *args):
