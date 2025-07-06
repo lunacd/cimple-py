@@ -50,11 +50,11 @@ def make_image(msys_path: pathlib.Path, target_path: pathlib.Path):
         name, version = pkg_info_from_filename(filename)
         available_packages.setdefault(name, []).append((version, filename))
 
-    dctx = zstandard.ZstdDecompressor()
+    zstd_ctx = zstandard.ZstdDecompressor()
 
-    for install_package in msys2_packages:
+    def extract_msys_package(package: str, extraction_target: str):
         # Get latest version of each package
-        if install_package not in available_packages:
+        if package not in available_packages:
             raise ValueError(f"Package {install_package} not found in cache.")
 
         versions = available_packages[install_package]
@@ -74,15 +74,18 @@ def make_image(msys_path: pathlib.Path, target_path: pathlib.Path):
             return tarfile.data_filter(member, path)
 
         # Untar latest version of the package
-        with tempfile.TemporaryDirectory() as tempdir:
-            with (cache_path / versions[-1][1]).open("rb") as f:
-                with dctx.stream_reader(f) as reader:
-                    # Open the tar archive from the decompressed stream
-                    with tarfile.open(fileobj=reader, mode="r:") as tar:
-                        # Extract all members to the specified directory
-                        tar.extractall(path=tempdir, filter=extraction_filter)
+        with (cache_path / versions[-1][1]).open("rb") as f:
+            with zstd_ctx.stream_reader(f) as reader:
+                # Open the tar archive from the decompressed stream
+                with tarfile.open(fileobj=reader, mode="r:") as tar:
+                    # Extract all members to the specified directory
+                    tar.extractall(path=extraction_target, filter=extraction_filter)
 
-            # TODO: hash this somehow
-            output_file = target_path / "windows-bootstrap_msys-x86_64.tar.gz"
-            with tarfile.open(output_file, "w:gz") as out_tar:
-                out_tar.add(tempdir, ".")
+    with tempfile.TemporaryDirectory() as tempdir:
+        for install_package in msys2_packages:
+            extract_msys_package(install_package, tempdir)
+
+        # TODO: hash this somehow
+        output_file = target_path / "windows-bootstrap_msys-x86_64.tar.gz"
+        with tarfile.open(output_file, "w:gz") as out_tar:
+            out_tar.add(tempdir, ".")
