@@ -16,6 +16,7 @@ def build_pkg():
     #     config = pkg_config.PkgConfig.model_validate(config_dict)
 
     # Prepare chroot image
+    common.logging.info("Preparing image")
     image_path = common.image.prepare_image("windows", "x86_64", "bootstrap_msys")
 
     # TODO: parepare dependency tree
@@ -28,6 +29,7 @@ def build_pkg():
 
     # Get source tarball
     # TODO: read package manifest to find out the URL
+    common.logging.info("Fetching original source")
     res = requests.get("https://cimple-pi.lunacd.com/orig/make-4.4.tar.gz")
     orig_file = common.constants.cimple_orig_dir / "make-4.4.tar.gz"
     with orig_file.open("wb") as f:
@@ -35,12 +37,16 @@ def build_pkg():
 
     # Extract source tarball
     # TODO: make this unique per build somehow
+    common.logging.info("Extracting original source")
     build_dir = common.constants.cimple_pkg_build_dir / "make-4.4"
     if build_dir.exists():
         shutil.rmtree(build_dir)
     with tarfile.open(orig_file, "r:gz") as tar:
         common.tarfile.extract_directory_from_tar(tar, "make-4.4", build_dir)
 
+    # TODO: support patching
+
+    common.logging.info("Starting build")
     commands = [["bash", "./configure"]]
 
     for command in commands:

@@ -35,6 +35,8 @@ def pkg_info_from_filename(filename: str) -> tuple[str, str]:
 
 
 def make_image(msys_path: pathlib.Path, target_path: pathlib.Path):
+    common.logging.info("Making windows bootstrap_msys image")
+
     pacman_path = msys_path / "usr" / "bin" / "pacman.exe"
     subprocess.run([pacman_path, "-Syuw", "--noconfirm"] + msys2_packages, check=True)
 
@@ -53,6 +55,8 @@ def make_image(msys_path: pathlib.Path, target_path: pathlib.Path):
     zstd_ctx = zstandard.ZstdDecompressor()
 
     def extract_msys_package(package: str, extraction_target: str):
+        common.logging.info("Installing %s", package)
+
         # Get latest version of each package
         if package not in available_packages:
             raise ValueError(f"Package {install_package} not found in cache.")
@@ -86,6 +90,7 @@ def make_image(msys_path: pathlib.Path, target_path: pathlib.Path):
             extract_msys_package(install_package, tempdir)
 
         # TODO: hash this somehow
+        common.logging.info("Tarring things up")
         output_file = target_path / "windows-bootstrap_msys-x86_64.tar.gz"
         with tarfile.open(output_file, "w:gz") as out_tar:
             out_tar.add(tempdir, ".")
