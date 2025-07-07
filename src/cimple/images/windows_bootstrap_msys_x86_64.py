@@ -13,7 +13,19 @@ import zstandard
 import cimple.common as common
 
 # TODO: extract this to a config file
-msys2_packages = ["bash", "gcc", "make", "coreutils", "sed", "msys2-runtime"]
+msys2_packages = [
+    "bash",
+    "gcc",
+    "make",
+    "coreutils",
+    "sed",
+    # Dependencies
+    "msys2-runtime",
+    "gmp",
+    "libiconv",
+    "libintl",
+    "gcc-libs",
+]
 
 
 def pkg_info_from_filename(filename: str) -> tuple[str, str]:
@@ -88,6 +100,10 @@ def make_image(msys_path: pathlib.Path, target_path: pathlib.Path):
     with tempfile.TemporaryDirectory() as tempdir:
         for install_package in msys2_packages:
             extract_msys_package(install_package, tempdir)
+
+        # Make ./tmp
+        # This is needed for programs like bash
+        os.mkdir(os.path.join(tempdir, "tmp"))
 
         # TODO: hash this somehow
         common.logging.info("Tarring things up")
