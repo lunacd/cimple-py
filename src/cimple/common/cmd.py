@@ -4,6 +4,14 @@ import subprocess
 import shutil
 import typing
 
+import cimple.common as common
+
+
+def baseline_env() -> dict[str, str]:
+    # TODO: support linux and macos
+    tmpdir = os.environ["TMP"]
+    return {"TMP": tmpdir, "TEMP": tmpdir, "TMPDIR": tmpdir}
+
 
 def construct_path_env_var(
     image_path: typing.Optional[pathlib.Path],
@@ -42,4 +50,8 @@ def run_command(
 
     args[0] = cmd
 
-    return subprocess.run(args, text=True, env={"PATH": path}, cwd=cwd)
+    env = baseline_env()
+    env.update({"PATH": path})
+
+    common.logging.debug("Executing %s in %s, env %s", " ".join(args), cwd, env)
+    return subprocess.run(args, text=True, env=env, cwd=cwd)
