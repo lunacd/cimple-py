@@ -26,7 +26,6 @@ def construct_path_env_var(
         # No /usr is allowed in the package index
         path_arr.append(str(dependency_path / "bin"))
     if image_path is not None:
-        path_arr.append(str(image_path / "bin"))
         path_arr.append(str(image_path / "usr" / "bin"))
 
     return os.pathsep.join(path_arr)
