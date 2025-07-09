@@ -19,12 +19,24 @@ msys2_packages = [
     "make",
     "coreutils",
     "sed",
+    "grep",
     # Dependencies
     "msys2-runtime",
     "gmp",
-    "libiconv",
     "libintl",
+    "libiconv",
     "gcc-libs",
+    "binutils",
+    "gmp",
+    "isl",
+    "mpc",
+    "mpfr",
+    "zlib",
+    "libpcre",
+    "msys2-runtime-devel",
+    "msys2-w32api-headers",
+    "msys2-w32api-runtime",
+    "windows-default-manifest",
 ]
 
 
