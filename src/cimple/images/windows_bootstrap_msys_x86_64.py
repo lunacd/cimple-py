@@ -20,6 +20,7 @@ msys2_packages = [
     "coreutils",
     "sed",
     "grep",
+    "gawk",
     # Dependencies
     "msys2-runtime",
     "gmp",
@@ -33,6 +34,8 @@ msys2_packages = [
     "mpfr",
     "zlib",
     "libpcre",
+    "libreadline",
+    "ncurses",
     "msys2-runtime-devel",
     "msys2-w32api-headers",
     "msys2-w32api-runtime",
