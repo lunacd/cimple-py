@@ -1,6 +1,7 @@
 import pathlib
-import tarfile
 import shutil
+import tarfile
+
 import requests
 
 import cimple.common as common
@@ -15,7 +16,8 @@ def get_image(image_name: str):
     url = f"https://cimple-pi.lunacd.com/image/{image_file_name}"
     r = requests.get(url, allow_redirects=True)
     r.raise_for_status()
-    open(target_path, "wb").write(r.content)
+    with target_path.open("wb") as f:
+        f.write(r.content)
 
 
 def prepare_image(platform: str, arch: str, variant: str) -> pathlib.Path:

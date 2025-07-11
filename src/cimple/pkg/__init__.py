@@ -1,13 +1,12 @@
 __all__ = ["pkg_config"]
 
-import os.path
+import shutil
+import tarfile
+
+import requests
 
 import cimple.common as common
 import cimple.pkg.pkg_config as pkg_config
-
-import requests
-import tarfile
-import shutil
 
 
 def build_pkg():
@@ -47,7 +46,7 @@ def build_pkg():
     # TODO: support patching
 
     common.logging.info("Starting build")
-    commands = [["bash", "./configure"]]
+    commands = [["bash", "./configure"], ["make"]]
 
     for command in commands:
         common.cmd.run_command(command, image_path=image_path, dependency_path=None, cwd=build_dir)

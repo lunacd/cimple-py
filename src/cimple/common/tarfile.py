@@ -1,6 +1,6 @@
 import collections.abc
-import tarfile
 import pathlib
+import tarfile
 
 
 def extract_directory_from_tar(

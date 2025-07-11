@@ -1,6 +1,5 @@
 import pytest
 
-
 from cimple.common.version import version_compare
 
 

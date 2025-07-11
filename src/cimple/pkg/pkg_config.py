@@ -1,3 +1,4 @@
+
 import pydantic
 
 
@@ -11,22 +12,26 @@ class PkgConfigPkg(pydantic.BaseModel):
     # TODO: get a enum of all possible platforms
     supported_platforms: list[str]
 
+    version: str
+
 
 class PkgConfigInput(pydantic.BaseModel):
     """
     input section of a cimple package config
     """
 
-    url: str
     sha256: str
+    tarball_root_dir: str
 
 
-class PkgConfigOutput(pydantic.BaseModel):
+class PkgConfigRule(pydantic.BaseModel):
     """
-    output section of a cimple package config
+    A detailed package rule with more configuration options
     """
 
-    sha256: str
+    cwd: str | None
+    env: dict[str, str] | None
+    rule: str | list[str]
 
 
 class PkgConfigRules(pydantic.BaseModel):
@@ -34,7 +39,7 @@ class PkgConfigRules(pydantic.BaseModel):
     rules section of a cimple package config
     """
 
-    default: list[str]
+    default: list[str | PkgConfigRule]
 
 
 class PkgConfig(pydantic.BaseModel):
@@ -42,8 +47,6 @@ class PkgConfig(pydantic.BaseModel):
     Config for a cimple PI package
     """
 
-    version: int
     pkg: PkgConfigPkg
     input: PkgConfigInput
-    output: PkgConfigOutput
     rules: PkgConfigRules

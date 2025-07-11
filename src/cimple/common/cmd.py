@@ -1,8 +1,7 @@
 import os
 import pathlib
-import subprocess
 import shutil
-import typing
+import subprocess
 
 import cimple.common as common
 
@@ -14,8 +13,8 @@ def baseline_env() -> dict[str, str]:
 
 
 def construct_path_env_var(
-    image_path: typing.Optional[pathlib.Path],
-    dependency_path: typing.Optional[pathlib.Path],
+    image_path: pathlib.Path | None,
+    dependency_path: pathlib.Path | None,
 ):
     """
     Build a PATH environment variable from the given image path and/or dependency path.
@@ -33,8 +32,8 @@ def construct_path_env_var(
 
 def run_command(
     args: list[str],
-    image_path: typing.Optional[pathlib.Path],
-    dependency_path: typing.Optional[pathlib.Path],
+    image_path: pathlib.Path | None,
+    dependency_path: pathlib.Path | None,
     cwd: pathlib.Path,
 ) -> subprocess.CompletedProcess[str]:
     """

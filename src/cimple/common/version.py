@@ -13,12 +13,12 @@ def semantic_version_compare(v1: str, v2: str) -> int:
     for part1, part2 in zip(v1_parts, v2_parts):
         if part1 < part2:
             return -1
-        elif part1 > part2:
+        if part1 > part2:
             return 1
 
     if len(v1_parts) < len(v2_parts):
         return -1
-    elif len(v1_parts) > len(v2_parts):
+    if len(v1_parts) > len(v2_parts):
         return 1
 
     return 0

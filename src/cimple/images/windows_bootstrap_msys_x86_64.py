@@ -2,12 +2,12 @@
 Create MSYS bootstrap image.
 """
 
+import functools
 import pathlib
 import subprocess
-import os
-import functools
-import tempfile
 import tarfile
+import tempfile
+
 import zstandard
 
 import cimple.common as common
@@ -68,15 +68,15 @@ def make_image(msys_path: pathlib.Path, target_path: pathlib.Path):
     subprocess.run([pacman_path, "-Syuw", "--noconfirm"] + msys2_packages, check=True)
 
     cache_path = msys_path / "var" / "cache" / "pacman" / "pkg"
-    cache_files = os.listdir(cache_path)
+    cache_files = cache_path.iterdir()
 
-    available_packages: dict[str, list[tuple[str, str]]] = {}
+    available_packages: dict[str, list[tuple[str, pathlib.Path]]] = {}
 
     for filename in cache_files:
-        if not filename.endswith(".pkg.tar.zst"):
+        if not filename.name.endswith(".pkg.tar.zst"):
             continue
 
-        name, version = pkg_info_from_filename(filename)
+        name, version = pkg_info_from_filename(filename.name)
         available_packages.setdefault(name, []).append((version, filename))
 
     zstd_ctx = zstandard.ZstdDecompressor()
@@ -90,9 +90,7 @@ def make_image(msys_path: pathlib.Path, target_path: pathlib.Path):
 
         versions = available_packages[install_package]
         versions.sort(
-            key=functools.cmp_to_key(
-                lambda a, b: common.version.version_compare(a[0], b[0])
-            )
+            key=functools.cmp_to_key(lambda a, b: common.version.version_compare(a[0], b[0]))
         )
 
         def extraction_filter(member: tarfile.TarInfo, path: str):
@@ -105,23 +103,24 @@ def make_image(msys_path: pathlib.Path, target_path: pathlib.Path):
             return tarfile.data_filter(member, path)
 
         # Untar latest version of the package
-        with (cache_path / versions[-1][1]).open("rb") as f:
-            with zstd_ctx.stream_reader(f) as reader:
-                # Open the tar archive from the decompressed stream
-                with tarfile.open(fileobj=reader, mode="r:") as tar:
-                    # Extract all members to the specified directory
-                    tar.extractall(path=extraction_target, filter=extraction_filter)
+        with (
+            (cache_path / versions[-1][1]).open("rb") as f,
+            zstd_ctx.stream_reader(f) as reader,
+            tarfile.open(fileobj=reader, mode="r:") as tar,
+        ):
+            # Extract all members to the specified directory
+            tar.extractall(path=extraction_target, filter=extraction_filter)
 
-    with tempfile.TemporaryDirectory() as tempdir:
+    with tempfile.TemporaryDirectory() as image_creation_dir:
         for install_package in msys2_packages:
-            extract_msys_package(install_package, tempdir)
+            extract_msys_package(install_package, image_creation_dir)
 
         # Make ./tmp
         # This is needed for programs like bash
-        os.mkdir(os.path.join(tempdir, "tmp"))
+        (pathlib.Path(image_creation_dir) / "tmp").mkdir()
 
         # TODO: hash this somehow
         common.logging.info("Tarring things up")
         output_file = target_path / "windows-bootstrap_msys-x86_64.tar.gz"
         with tarfile.open(output_file, "w:gz") as out_tar:
-            out_tar.add(tempdir, ".")
+            out_tar.add(image_creation_dir, ".")
