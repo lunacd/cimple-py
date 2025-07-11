@@ -47,7 +47,7 @@ def pkg_info_from_filename(filename: str) -> tuple[str, str]:
     """
     Extract the package name from the filename.
     """
-    # libidn2-2.3.8-1-x86_64.pkg.tar.zst
+    # For example, bash-5.2.037-2-x86_64.pkg.tar.zst
     filename = filename.removesuffix(".pkg.tar.zst")
     # -1: arch
     # -2: revision
