@@ -35,6 +35,7 @@ def run_command(
     image_path: pathlib.Path | None,
     dependency_path: pathlib.Path | None,
     cwd: pathlib.Path,
+    env: dict[str, str] | None,
 ) -> subprocess.CompletedProcess[str]:
     """
     Run a command within the constructed image and dependency tree.
@@ -48,7 +49,7 @@ def run_command(
 
     args[0] = cmd
 
-    env = baseline_env()
+    env.update(baseline_env())
     env.update({"PATH": path})
 
     common.logging.debug("Executing %s in %s, env %s", " ".join(args), cwd, env)

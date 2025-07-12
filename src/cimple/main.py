@@ -11,8 +11,8 @@ app = typer.Typer()
 
 
 @app.command(name="build-pkg")
-def build_pkg():
-    pkg.build_pkg()
+def build_pkg(pkg_path: pathlib.Path):
+    pkg.build_pkg(pkg_path)
 
 
 @app.command()

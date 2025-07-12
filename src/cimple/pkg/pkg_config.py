@@ -1,4 +1,3 @@
-
 import pydantic
 
 
@@ -22,6 +21,8 @@ class PkgConfigInput(pydantic.BaseModel):
 
     sha256: str
     tarball_root_dir: str
+    tarball_compression: str = "gz"
+    image_type: str = "default"
 
 
 class PkgConfigRule(pydantic.BaseModel):
@@ -29,8 +30,8 @@ class PkgConfigRule(pydantic.BaseModel):
     A detailed package rule with more configuration options
     """
 
-    cwd: str | None
-    env: dict[str, str] | None
+    cwd: str | None = None
+    env: dict[str, str] | None = None
     rule: str | list[str]
 
 
