@@ -30,7 +30,9 @@ class PkgConfigRule(pydantic.BaseModel):
     A detailed package rule with more configuration options
     """
 
+    # This is a string not Path because it could refer to builtin variables
     cwd: str | None = None
+
     env: dict[str, str] | None = None
     rule: str | list[str]
 

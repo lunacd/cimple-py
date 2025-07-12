@@ -29,6 +29,8 @@ def build_pkg(pkg_path: pathlib.Path):
         common.constants.cimple_orig_dir.mkdir(parents=True)
     if not (common.constants.cimple_pkg_build_dir.exists()):
         common.constants.cimple_pkg_build_dir.mkdir(parents=True)
+    if not (common.constants.cimple_pkg_output_dir.exists()):
+        common.constants.cimple_pkg_output_dir.mkdir(parents=True)
 
     # Get source tarball
     common.logging.info("Fetching original source")
@@ -41,12 +43,17 @@ def build_pkg(pkg_path: pathlib.Path):
     with orig_file.open("wb") as f:
         f.write(res.content)
 
-    # Extract source tarball
-    # TODO: make this unique per build somehow
-    common.logging.info("Extracting original source")
+    # Prepare build and output directories
     build_dir = common.constants.cimple_pkg_build_dir / pkg_full_name
     if build_dir.exists():
         shutil.rmtree(build_dir)
+    output_dir = common.constants.cimple_pkg_output_dir / pkg_full_name
+    if output_dir.exists():
+        shutil.rmtree(output_dir)
+
+    # Extract source tarball
+    # TODO: make this unique per build somehow
+    common.logging.info("Extracting original source")
     with tarfile.open(orig_file, f"r:{config.input.tarball_compression}") as tar:
         common.tarfile.extract_directory_from_tar(tar, config.input.tarball_root_dir, build_dir)
 
@@ -55,6 +62,11 @@ def build_pkg(pkg_path: pathlib.Path):
     common.logging.info("Starting build")
 
     # TODO: support overriding rules per-platform
+    cimple_builtin_variables = {"cimple_output_dir": str(output_dir)}
+
+    def interpolate_variables(input_str):
+        return common.str_interpolation.interpolate(input_str, cimple_builtin_variables)
+
     for rule in config.rules.default:
         if isinstance(rule, str):
             cmd: list[str] = rule.split(" ")
@@ -62,7 +74,21 @@ def build_pkg(pkg_path: pathlib.Path):
             env = {}
         else:
             cmd = rule.rule if isinstance(rule.rule, list) else rule.rule.split(" ")
-            cwd = rule.cwd if rule.cwd else build_dir
+            cwd = pathlib.Path(interpolate_variables(rule.cwd)) if rule.cwd else build_dir
             env = rule.env if rule.env else {}
 
-        common.cmd.run_command(cmd, image_path=image_path, dependency_path=None, cwd=cwd, env=env)
+        interpolated_cmd = []
+        interpolated_env = {}
+
+        for cmd_item in cmd:
+            interpolated_cmd.append(interpolate_variables(cmd_item))
+        for env_key, env_val in env.items():
+            interpolated_env[interpolate_variables(env_key)] = interpolate_variables(env_val)
+
+        common.cmd.run_command(
+            interpolated_cmd,
+            image_path=image_path,
+            dependency_path=None,
+            cwd=cwd,
+            env=interpolated_env,
+        )
