@@ -23,6 +23,7 @@ class PkgConfigInput(pydantic.BaseModel):
     tarball_root_dir: str
     tarball_compression: str = "gz"
     image_type: str = "default"
+    patches: list[str] = []
 
 
 class PkgConfigRule(pydantic.BaseModel):

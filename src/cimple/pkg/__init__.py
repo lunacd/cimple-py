@@ -5,6 +5,7 @@ import shutil
 import tarfile
 import tomllib
 
+import patch_ng
 import requests
 
 import cimple.common as common
@@ -47,9 +48,11 @@ def build_pkg(pkg_path: pathlib.Path):
     build_dir = common.constants.cimple_pkg_build_dir / pkg_full_name
     if build_dir.exists():
         shutil.rmtree(build_dir)
+    build_dir.mkdir()
     output_dir = common.constants.cimple_pkg_output_dir / pkg_full_name
     if output_dir.exists():
         shutil.rmtree(output_dir)
+    output_dir.mkdir()
 
     # Extract source tarball
     # TODO: make this unique per build somehow
@@ -58,6 +61,22 @@ def build_pkg(pkg_path: pathlib.Path):
         common.tarfile.extract_directory_from_tar(tar, config.input.tarball_root_dir, build_dir)
 
     # TODO: support patching
+    common.logging.info("Patching source")
+
+    patch_dir = pkg_path / "patches"
+    for patch_name in config.input.patches:
+        common.logging.info("Applying %s", patch_name)
+        patch_path = patch_dir / patch_name
+        if not patch_path.exists():
+            raise RuntimeError(f"Patch {patch_name} is not found in {patch_dir}.")
+
+        patch = patch_ng.fromfile(patch_path)
+        # NOTE: It'll be nice to check whether the patch applies correctly in this step and
+        # give error message about what patch fails with what file. I haven't figured out
+        # how to do this with patch-ng.
+        patch_success = patch.apply(root=build_dir)
+        if not patch_success:
+            raise RuntimeError(f"Failed to apply {patch_name}.")
 
     common.logging.info("Starting build")
 
