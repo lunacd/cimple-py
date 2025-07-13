@@ -8,8 +8,9 @@ import cimple.common as common
 
 def baseline_env() -> dict[str, str]:
     # TODO: support linux and macos
+    # TODO: move this to image.json
     tmpdir = os.environ["TMP"]
-    return {"TMP": tmpdir, "TEMP": tmpdir, "TMPDIR": tmpdir}
+    return {"TMP": tmpdir, "TEMP": tmpdir, "TMPDIR": tmpdir, "SOURCE_DATE_EPOCH": "0"}
 
 
 def construct_path_env_var(

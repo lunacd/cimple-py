@@ -53,7 +53,7 @@ def add(from_snapshot: str, packages: list[pkg.PkgId], pkg_index_path: pathlib.P
             tar_path = pathlib.Path(tmp_dir) / "pkg.tar.gz"
             with tarfile.open(tar_path, "w:gz") as out_tar:
                 # TODO: is TarFile.add deterministic?
-                out_tar.add(output_path, ".")
+                out_tar.add(output_path, ".", filter=common.tarfile.reproducible_filter)
 
             # Move tarball to pkg store
             tar_hash = common.hash.sha256_file(tar_path)

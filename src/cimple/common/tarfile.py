@@ -19,3 +19,8 @@ def extract_directory_from_tar(
                 yield member
 
     tar.extractall(target_directory, get_directory_members())
+
+
+def reproducible_filter(tarinfo: tarfile.TarInfo) -> tarfile.TarInfo:
+    tarinfo.mtime = 0
+    return tarinfo
