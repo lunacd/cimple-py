@@ -38,7 +38,9 @@ def build_pkg(pkg_path: pathlib.Path):
     # Get source tarball
     common.logging.info("Fetching original source")
     pkg_full_name = f"{config.pkg.name}-{config.pkg.version}"
-    pkg_tarball_name = f"{pkg_full_name}.tar.{config.input.tarball_compression}"
+    pkg_tarball_name = (
+        f"{config.pkg.name}-{config.input.source_version}.tar.{config.input.tarball_compression}"
+    )
     source_url = f"https://cimple-pi.lunacd.com/orig/{pkg_tarball_name}"
     res = requests.get(source_url)
     res.raise_for_status()
