@@ -1,7 +1,6 @@
 __all__ = ["pkg_config"]
 
 import pathlib
-import shutil
 import tarfile
 
 import patch_ng
@@ -17,7 +16,7 @@ class PkgId(pydantic.BaseModel):
     version: str
 
 
-def build_pkg(pkg_path: pathlib.Path):
+def build_pkg(pkg_path: pathlib.Path) -> pathlib.Path:
     config = pkg_config.load_pkg_config(pkg_path)
 
     # Prepare chroot image
@@ -28,12 +27,9 @@ def build_pkg(pkg_path: pathlib.Path):
     # TODO: parepare dependency tree
 
     # Ensure needed directories exist
-    if not common.constants.cimple_orig_dir.exists():
-        common.constants.cimple_orig_dir.mkdir(parents=True)
-    if not (common.constants.cimple_pkg_build_dir.exists()):
-        common.constants.cimple_pkg_build_dir.mkdir(parents=True)
-    if not (common.constants.cimple_pkg_output_dir.exists()):
-        common.constants.cimple_pkg_output_dir.mkdir(parents=True)
+    common.util.ensure_path(common.constants.cimple_orig_dir)
+    common.util.ensure_path(common.constants.cimple_pkg_build_dir)
+    common.util.ensure_path(common.constants.cimple_pkg_output_dir)
 
     # Get source tarball
     common.logging.info("Fetching original source")
@@ -50,13 +46,9 @@ def build_pkg(pkg_path: pathlib.Path):
 
     # Prepare build and output directories
     build_dir = common.constants.cimple_pkg_build_dir / pkg_full_name
-    if build_dir.exists():
-        shutil.rmtree(build_dir)
-    build_dir.mkdir()
     output_dir = common.constants.cimple_pkg_output_dir / pkg_full_name
-    if output_dir.exists():
-        shutil.rmtree(output_dir)
-    output_dir.mkdir()
+    common.util.clear_path(build_dir)
+    common.util.clear_path(output_dir)
 
     # Extract source tarball
     # TODO: make this unique per build somehow
@@ -115,3 +107,6 @@ def build_pkg(pkg_path: pathlib.Path):
             cwd=cwd,
             env=interpolated_env,
         )
+
+    common.logging.info("Build result is available in %s", output_dir)
+    return output_dir
