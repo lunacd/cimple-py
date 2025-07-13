@@ -1,3 +1,5 @@
+import typing
+
 import pydantic
 
 
@@ -51,6 +53,7 @@ class PkgConfig(pydantic.BaseModel):
     Config for a cimple PI package
     """
 
+    schema_version: typing.Literal[0]
     pkg: PkgConfigPkg
     input: PkgConfigInput
     rules: PkgConfigRules
