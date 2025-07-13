@@ -56,9 +56,7 @@ def build_pkg(pkg_path: pathlib.Path) -> pathlib.Path:
     with tarfile.open(orig_file, f"r:{config.input.tarball_compression}") as tar:
         common.tarfile.extract_directory_from_tar(tar, config.input.tarball_root_dir, build_dir)
 
-    # TODO: support patching
     common.logging.info("Patching source")
-
     patch_dir = pkg_path / "patches"
     for patch_name in config.input.patches:
         common.logging.info("Applying %s", patch_name)
