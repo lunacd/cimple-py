@@ -3,20 +3,22 @@ __all__ = ["pkg_config"]
 import pathlib
 import shutil
 import tarfile
-import tomllib
 
 import patch_ng
+import pydantic
 import requests
 
 import cimple.common as common
 import cimple.pkg.pkg_config as pkg_config
 
 
+class PkgId(pydantic.BaseModel):
+    name: str
+    version: str
+
+
 def build_pkg(pkg_path: pathlib.Path):
-    config_path = pkg_path / "pkg.toml"
-    with config_path.open("rb") as f:
-        config_dict = tomllib.load(f)
-        config = pkg_config.PkgConfig.model_validate(config_dict)
+    config = pkg_config.load_pkg_config(pkg_path)
 
     # Prepare chroot image
     common.logging.info("Preparing image")

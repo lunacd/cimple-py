@@ -1,3 +1,5 @@
+import pathlib
+import tomllib
 import typing
 
 import pydantic
@@ -14,6 +16,9 @@ class PkgConfigPkg(pydantic.BaseModel):
     supported_platforms: list[str]
 
     version: str
+
+    depends: list[str]
+    build_depends: list[str]
 
 
 class PkgConfigInput(pydantic.BaseModel):
@@ -57,3 +62,10 @@ class PkgConfig(pydantic.BaseModel):
     pkg: PkgConfigPkg
     input: PkgConfigInput
     rules: PkgConfigRules
+
+
+def load_pkg_config(pkg_path: pathlib.Path):
+    config_path = pkg_path / "pkg.toml"
+    with config_path.open("rb") as f:
+        config_dict = tomllib.load(f)
+        return PkgConfig.model_validate(config_dict)
