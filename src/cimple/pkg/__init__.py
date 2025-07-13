@@ -37,12 +37,23 @@ def build_pkg(pkg_path: pathlib.Path) -> pathlib.Path:
     pkg_tarball_name = (
         f"{config.pkg.name}-{config.input.source_version}.tar.{config.input.tarball_compression}"
     )
-    source_url = f"https://cimple-pi.lunacd.com/orig/{pkg_tarball_name}"
-    res = requests.get(source_url)
-    res.raise_for_status()
     orig_file = common.constants.cimple_orig_dir / pkg_tarball_name
-    with orig_file.open("wb") as f:
-        f.write(res.content)
+    if not orig_file.exists():
+        source_url = f"https://cimple-pi.lunacd.com/orig/{pkg_tarball_name}"
+        res = requests.get(source_url)
+        res.raise_for_status()
+        with orig_file.open("wb") as f:
+            f.write(res.content)
+
+    # Verify source tarball
+    common.logging.info("Verifying original source")
+    orig_hash = common.hash.sha256_file(orig_file)
+    if orig_hash != config.input.sha256:
+        raise RuntimeError(
+            "Corrupted original source tarball, expecting SHA256 %s but got %s.",
+            config.input.sha256,
+            orig_hash,
+        )
 
     # Prepare build and output directories
     build_dir = common.constants.cimple_pkg_build_dir / pkg_full_name
