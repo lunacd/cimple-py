@@ -29,6 +29,7 @@ def add(from_snapshot: str, packages: list[pkg.PkgId], pkg_index_path: pathlib.P
                 version=package.version,
                 depends=pkg_config.pkg.depends,
                 build_depends=pkg_config.pkg.build_depends,
+                compression_method="xz",
                 sha256="to_be_built",
             )
         )
@@ -50,15 +51,19 @@ def add(from_snapshot: str, packages: list[pkg.PkgId], pkg_index_path: pathlib.P
         # Tar it up and add to snapshot
         # Initially tar it up in a generic name because the sha cannot yet be determined
         with tempfile.TemporaryDirectory() as tmp_dir:
-            tar_path = pathlib.Path(tmp_dir) / "pkg.tar.gz"
-            with tarfile.open(tar_path, "w:gz") as out_tar:
+            tar_path = pathlib.Path(tmp_dir) / "pkg.tar.xz"
+            with tarfile.open(tar_path, "w:xz") as out_tar:
                 # TODO: is TarFile.add deterministic?
                 out_tar.add(output_path, ".", filter=common.tarfile.reproducible_filter)
 
             # Move tarball to pkg store
             tar_hash = common.hash.sha256_file(tar_path)
-            new_file_name = f"{package.name}-{package.version}-{tar_hash}.tar.gz"
-            tar_path.rename(common.constants.cimple_pkg_dir / new_file_name)
+            new_file_name = f"{package.name}-{package.version}-{tar_hash}.tar.xz"
+            new_file_path = common.constants.cimple_pkg_dir / new_file_name
+            if new_file_path.exists():
+                common.logging.info("Reusing %s", new_file_name)
+            else:
+                tar_path.rename(new_file_path)
 
         next(filter(lambda item: item.name == package.name, snapshot_data.pkgs)).sha256 = tar_hash
 
