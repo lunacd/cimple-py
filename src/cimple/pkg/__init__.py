@@ -67,7 +67,9 @@ def build_pkg(pkg_path: pathlib.Path) -> pathlib.Path:
     # Extract source tarball
     # TODO: make this unique per build somehow
     common.logging.info("Extracting original source")
-    with tarfile.open(orig_file, f"r:{config.input.tarball_compression}") as tar:
+    with tarfile.open(
+        orig_file, common.tarfile.get_tarfile_mode("r", config.input.tarball_compression)
+    ) as tar:
         common.tarfile.extract_directory_from_tar(tar, config.input.tarball_root_dir, build_dir)
 
     common.logging.info("Patching source")

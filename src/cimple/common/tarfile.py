@@ -1,6 +1,7 @@
 import collections.abc
 import pathlib
 import tarfile
+import typing
 
 
 def extract_directory_from_tar(
@@ -24,3 +25,13 @@ def extract_directory_from_tar(
 def reproducible_filter(tarinfo: tarfile.TarInfo) -> tarfile.TarInfo:
     tarinfo.mtime = 0
     return tarinfo
+
+
+def get_tarfile_mode(
+    operation: typing.Literal["r", "w"], compression: typing.Literal["gz", "xz"]
+) -> typing.Literal["w:gz", "r:gz", "w:xz", "r:xz"]:
+    """
+    This is more importantly working around type checking than code reuse.
+    """
+
+    return f"{operation}:{compression}"  # type: ignore

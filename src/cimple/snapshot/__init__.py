@@ -11,7 +11,7 @@ class SnapshotPkg(pydantic.BaseModel):
     name: str
     version: str
     sha256: str
-    compression_method: str
+    compression_method: typing.Literal["xz"]
     depends: list[str]
     build_depends: list[str]
 
