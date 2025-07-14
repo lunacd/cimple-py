@@ -68,6 +68,7 @@ def add(from_snapshot: str, packages: list[pkg.PkgId], pkg_index_path: pathlib.P
         next(filter(lambda item: item.name == package.name, snapshot_data.pkgs)).sha256 = tar_hash
 
     # Dump manifest
+    # NOTE: This is O(num of packages), revisit when package index grows larger
     with snapshot_manifest.open("w") as f:
         f.write(snapshot_data.model_dump_json())
 

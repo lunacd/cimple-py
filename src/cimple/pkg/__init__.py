@@ -53,9 +53,8 @@ def build_pkg(pkg_path: pathlib.Path) -> pathlib.Path:
     orig_hash = common.hash.sha256_file(orig_file)
     if orig_hash != config.input.sha256:
         raise RuntimeError(
-            "Corrupted original source tarball, expecting SHA256 %s but got %s.",
-            config.input.sha256,
-            orig_hash,
+            "Corrupted original source tarball, "
+            f"expecting SHA256 {config.input.sha256} but got {orig_hash}."
         )
 
     # Prepare build and output directories
@@ -70,7 +69,10 @@ def build_pkg(pkg_path: pathlib.Path) -> pathlib.Path:
     with tarfile.open(
         orig_file, common.tarfile.get_tarfile_mode("r", config.input.tarball_compression)
     ) as tar:
-        common.tarfile.extract_directory_from_tar(tar, config.input.tarball_root_dir, build_dir)
+        if config.input.tarball_root_dir is None:
+            tar.extractall(build_dir, filter="tar")
+        else:
+            common.tarfile.extract_directory_from_tar(tar, config.input.tarball_root_dir, build_dir)
 
     common.logging.info("Patching source")
     patch_dir = pkg_path / "patches"

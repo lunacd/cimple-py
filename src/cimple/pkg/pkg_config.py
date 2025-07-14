@@ -28,7 +28,7 @@ class PkgConfigInput(pydantic.BaseModel):
 
     sha256: str
     source_version: str
-    tarball_root_dir: str
+    tarball_root_dir: str | None = None
     tarball_compression: typing.Literal["gz", "xz"] = "gz"
     image_type: str = "default"
     patches: list[str] = []

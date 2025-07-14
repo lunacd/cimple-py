@@ -19,7 +19,7 @@ def extract_directory_from_tar(
                 member.name = member.name.removeprefix(prefix)
                 yield member
 
-    tar.extractall(target_directory, get_directory_members())
+    tar.extractall(target_directory, get_directory_members(), filter="tar")
 
 
 def reproducible_filter(tarinfo: tarfile.TarInfo) -> tarfile.TarInfo:
