@@ -34,7 +34,7 @@ def interpolate(input_str: str, context: dict[str, str]) -> str:
                     f'Invalid escape sequence "\\{char}". Do you mean to escape \\ with \\\\?'
                 )
 
-    def substitute_variable(start_index: int) -> (str, int):
+    def substitute_variable(start_index: int) -> tuple[str, int]:
         malformed_use_of_variable_error = (
             "Malformed use of variable. "
             "Variables are used as ${variable}. Do you mean to escape $ with \\$?"
@@ -52,7 +52,7 @@ def interpolate(input_str: str, context: dict[str, str]) -> str:
             raise RuntimeError(f"Undefined variable {variable_name}.")
         return context[variable_name], variable_end_index + 1
 
-    def consume_plain_text(start_index: int) -> (str, int):
+    def consume_plain_text(start_index: int) -> tuple[str, int]:
         special_char_index = _find_index_first_of(input_str, "\\$", start_index=start_index)
         plain_text_value = (
             input_str[start_index:]

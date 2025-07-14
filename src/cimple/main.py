@@ -3,7 +3,6 @@ import typing
 
 import typer
 
-import cimple.common as common
 import cimple.images as images
 import cimple.pkg as pkg
 import cimple.snapshot as snapshot
@@ -23,11 +22,12 @@ def build():
 
 @app.command()
 def clean(target: str):
+    # TODO: support all of the added directories
     if target == "all":
-        common.image.clean_images()
+        images.clean_images()
 
     if target == "images":
-        common.image.clean_images()
+        images.clean_images()
     elif target != "all":
         print(f"Unknown target: {target}. Supported targets: images.")
 

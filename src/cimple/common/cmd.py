@@ -50,6 +50,8 @@ def run_command(
 
     args[0] = cmd
 
+    if env is None:
+        env = {}
     env.update(baseline_env())
     env.update({"PATH": path})
 

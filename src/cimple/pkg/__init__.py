@@ -8,6 +8,9 @@ import pydantic
 import requests
 
 import cimple.common as common
+import cimple.images as images
+
+# Re-exports
 import cimple.pkg.pkg_config as pkg_config
 
 
@@ -22,7 +25,7 @@ def build_pkg(pkg_path: pathlib.Path) -> pathlib.Path:
     # Prepare chroot image
     common.logging.info("Preparing image")
     # TODO: support multiple platforms and arch
-    image_path = common.image.prepare_image("windows", "x86_64", config.input.image_type)
+    image_path = images.prepare_image("windows", "x86_64", config.input.image_type)
 
     # TODO: parepare dependency tree
 
@@ -76,6 +79,8 @@ def build_pkg(pkg_path: pathlib.Path) -> pathlib.Path:
             raise RuntimeError(f"Patch {patch_name} is not found in {patch_dir}.")
 
         patch = patch_ng.fromfile(patch_path)
+        if isinstance(patch, bool):
+            raise RuntimeError(f"Failed to load patch {patch_name}")
         # NOTE: It'll be nice to check whether the patch applies correctly in this step and
         # give error message about what patch fails with what file. I haven't figured out
         # how to do this with patch-ng.
@@ -86,7 +91,11 @@ def build_pkg(pkg_path: pathlib.Path) -> pathlib.Path:
     common.logging.info("Starting build")
 
     # TODO: support overriding rules per-platform
-    cimple_builtin_variables = {"cimple_output_dir": str(output_dir)}
+    cimple_builtin_variables = {
+        "cimple_output_dir": str(output_dir),
+        "cimple_build_dir": str(build_dir),
+        "cimple_image_dir": str(image_path),
+    }
 
     def interpolate_variables(input_str):
         return common.str_interpolation.interpolate(input_str, cimple_builtin_variables)
