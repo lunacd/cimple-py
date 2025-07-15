@@ -8,23 +8,23 @@ import cimple.pkg as pkg
 import cimple.snapshot as snapshot
 
 
-def add(from_snapshot: str, packages: list[pkg.PkgId], pkg_index_path: pathlib.Path):
+def add(
+    origin_snapshot: snapshot.models.Snapshot,
+    packages: list[pkg.PkgId],
+    pkg_index_path: pathlib.Path,
+) -> snapshot.models.Snapshot:
     # Ensure needed paths exist
     common.util.ensure_path(common.constants.cimple_snapshot_dir)
     common.util.ensure_path(common.constants.cimple_pkg_dir)
 
-    # TODO: support non-root snapshot
-    if from_snapshot == "root":
-        snapshot_data = snapshot.Snapshot(version=0, pkgs=[])
-    else:
-        raise NotImplementedError
+    snapshot_data = origin_snapshot
 
     # Add package to snapshot
     for package in packages:
         package_path = pkg_index_path / "pkg" / package.name / package.version
         pkg_config = pkg.pkg_config.load_pkg_config(package_path)
         snapshot_data.pkgs.append(
-            snapshot.SnapshotPkg(
+            snapshot.models.SnapshotPkg(
                 name=package.name,
                 version=package.version,
                 depends=pkg_config.pkg.depends,
@@ -37,11 +37,6 @@ def add(from_snapshot: str, packages: list[pkg.PkgId], pkg_index_path: pathlib.P
     # TODO: walk dependency graph to determine the list of packages to build
     # For now, assume it's only the added packages that needs building
     packages_to_build = packages
-
-    # Create new snapshot
-    # Using timestamp as snapshot name. No two snapshots should finish within the second.
-    snapshot_name = datetime.datetime.now(tz=datetime.UTC).strftime("%Y%m%d-%H%M%S")
-    snapshot_manifest = common.constants.cimple_snapshot_dir / f"{snapshot_name}.json"
 
     # Build package
     for package in packages_to_build:
@@ -65,13 +60,34 @@ def add(from_snapshot: str, packages: list[pkg.PkgId], pkg_index_path: pathlib.P
             else:
                 tar_path.rename(new_file_path)
 
+        # NOTE: This is O(num of packages), revisit when package index grows larger
         next(filter(lambda item: item.name == package.name, snapshot_data.pkgs)).sha256 = tar_hash
 
-    # Dump manifest
-    # NOTE: This is O(num of packages), revisit when package index grows larger
-    with snapshot_manifest.open("w") as f:
-        f.write(snapshot_data.model_dump_json())
+    return snapshot_data
 
 
 def remove():
     pass
+
+
+def dump_snapshot(snapshot_data: snapshot.models.Snapshot):
+    snapshot_name = datetime.datetime.now(tz=datetime.UTC).strftime("%Y%m%d-%H%M%S")
+    snapshot_manifest = common.constants.cimple_snapshot_dir / f"{snapshot_name}.json"
+    if snapshot_manifest.exists():
+        raise RuntimeError(f"Snapshot {snapshot_name} already exists!")
+    with snapshot_manifest.open("w") as f:
+        f.write(snapshot_data.model_dump_json())
+
+
+def load_snapshot(name: str) -> snapshot.models.Snapshot:
+    if name == "root":
+        return snapshot.models.Snapshot(
+            version=0,
+            pkgs=[],
+            ancestor="root",
+            changes=snapshot.models.SnapshotChanges(add=[], remove=[]),
+        )
+
+    snapshot_path = common.constants.cimple_snapshot_dir / f"{name}.json"
+    with snapshot_path.open("r") as f:
+        return snapshot.models.Snapshot.model_validate_json(f.read())

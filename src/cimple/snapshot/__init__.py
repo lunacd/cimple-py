@@ -1,21 +1,6 @@
-__all__ = ["ops"]
+__all__ = ["ops", "models"]
 
-import typing
 
-import pydantic
-
+# Re-exports
+import cimple.snapshot.models as models
 import cimple.snapshot.ops as ops
-
-
-class SnapshotPkg(pydantic.BaseModel):
-    name: str
-    version: str
-    sha256: str
-    compression_method: typing.Literal["xz"]
-    depends: list[str]
-    build_depends: list[str]
-
-
-class Snapshot(pydantic.BaseModel):
-    version: typing.Literal[0]
-    pkgs: list[SnapshotPkg]
