@@ -1,5 +1,6 @@
 import pathlib
 import shutil
+import stat
 
 
 def ensure_path(path: pathlib.Path):
@@ -21,3 +22,14 @@ def clear_path(path: pathlib.Path):
         shutil.rmtree(path)
 
     path.mkdir()
+
+
+def fix_permissions(path: pathlib.Path):
+    for item in path.rglob("*"):
+        if item.is_file() or item.is_dir():
+            # Get current permissions
+            mode = item.stat().st_mode
+
+            # Add user/group/other execute bits
+            writable_mode = mode | stat.S_IWUSR
+            item.chmod(writable_mode)
