@@ -21,6 +21,7 @@ msys2_packages = [
     "sed",
     "grep",
     "gawk",
+    "ncurses-devel",
     # Dependencies
     "msys2-runtime",
     "gmp",
