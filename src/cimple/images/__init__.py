@@ -10,6 +10,7 @@ import cimple.common as common
 
 # Re-exports
 import cimple.images.windows_bootstrap_msys_x86_64 as windows_bootstrap_msys_x86_64
+from cimple.common.tarfile import writable_extract_filter
 
 
 def get_image(image_name: str):
@@ -43,7 +44,7 @@ def prepare_image(platform: str, arch: str, variant: str) -> pathlib.Path:
             str(common.constants.cimple_image_dir / f"{image_name}.tar.gz"),
             "r:gz",
         ) as tar:
-            tar.extractall(path=target_path)
+            tar.extractall(path=target_path, filter=writable_extract_filter)
 
     return target_path
 

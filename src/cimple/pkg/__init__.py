@@ -12,6 +12,7 @@ import cimple.images as images
 
 # Re-exports
 import cimple.pkg.pkg_config as pkg_config
+from cimple.common.tarfile import writable_extract_filter
 
 
 class PkgId(pydantic.BaseModel):
@@ -70,7 +71,7 @@ def build_pkg(pkg_path: pathlib.Path) -> pathlib.Path:
         orig_file, common.tarfile.get_tarfile_mode("r", config.input.tarball_compression)
     ) as tar:
         if config.input.tarball_root_dir is None:
-            tar.extractall(build_dir, filter="tar")
+            tar.extractall(build_dir, filter=writable_extract_filter)
         else:
             common.tarfile.extract_directory_from_tar(tar, config.input.tarball_root_dir, build_dir)
 
@@ -96,9 +97,9 @@ def build_pkg(pkg_path: pathlib.Path) -> pathlib.Path:
 
     # TODO: support overriding rules per-platform
     cimple_builtin_variables = {
-        "cimple_output_dir": str(output_dir),
-        "cimple_build_dir": str(build_dir),
-        "cimple_image_dir": str(image_path),
+        "cimple_output_dir": output_dir.as_posix(),
+        "cimple_build_dir": build_dir.as_posix(),
+        "cimple_image_dir": image_path.as_posix(),
     }
 
     def interpolate_variables(input_str):
@@ -122,13 +123,17 @@ def build_pkg(pkg_path: pathlib.Path) -> pathlib.Path:
         for env_key, env_val in env.items():
             interpolated_env[interpolate_variables(env_key)] = interpolate_variables(env_val)
 
-        common.cmd.run_command(
+        process = common.cmd.run_command(
             interpolated_cmd,
             image_path=image_path,
             dependency_path=None,
             cwd=cwd,
             env=interpolated_env,
         )
+        if process.returncode != 0:
+            raise RuntimeError(
+                f"Failed executing {' '.join(cmd)}, return code {process.returncode}."
+            )
 
     common.logging.info("Build result is available in %s", output_dir)
     return output_dir

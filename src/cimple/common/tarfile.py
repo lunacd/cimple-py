@@ -1,7 +1,20 @@
 import collections.abc
 import pathlib
+import stat
 import tarfile
 import typing
+
+
+def writable_extract_filter(tarinfo: tarfile.TarInfo, dest_path: str) -> tarfile.TarInfo:
+    if tarinfo.isdir() or tarinfo.isreg():
+        tarinfo.mode |= stat.S_IWUSR
+
+    return tarfile.tar_filter(tarinfo, dest_path)
+
+
+def reproducible_add_filter(tarinfo: tarfile.TarInfo) -> tarfile.TarInfo:
+    tarinfo.mtime = 0
+    return tarinfo
 
 
 def extract_directory_from_tar(
@@ -19,12 +32,7 @@ def extract_directory_from_tar(
                 member.name = member.name.removeprefix(prefix)
                 yield member
 
-    tar.extractall(target_directory, get_directory_members(), filter="tar")
-
-
-def reproducible_filter(tarinfo: tarfile.TarInfo) -> tarfile.TarInfo:
-    tarinfo.mtime = 0
-    return tarinfo
+    tar.extractall(target_directory, get_directory_members(), filter=writable_extract_filter)
 
 
 def get_tarfile_mode(

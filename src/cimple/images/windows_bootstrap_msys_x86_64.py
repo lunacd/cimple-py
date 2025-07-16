@@ -123,4 +123,4 @@ def make_image(msys_path: pathlib.Path, target_path: pathlib.Path):
         common.logging.info("Tarring things up")
         output_file = target_path / "windows-bootstrap_msys-x86_64.tar.gz"
         with tarfile.open(output_file, "w:gz") as out_tar:
-            out_tar.add(image_creation_dir, ".", filter=common.tarfile.reproducible_filter)
+            out_tar.add(image_creation_dir, ".", filter=common.tarfile.reproducible_add_filter)

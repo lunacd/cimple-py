@@ -49,7 +49,7 @@ def add(
             tar_path = pathlib.Path(tmp_dir) / "pkg.tar.xz"
             with tarfile.open(tar_path, "w:xz") as out_tar:
                 # TODO: is TarFile.add deterministic?
-                out_tar.add(output_path, ".", filter=common.tarfile.reproducible_filter)
+                out_tar.add(output_path, ".", filter=common.tarfile.reproducible_add_filter)
 
             # Move tarball to pkg store
             tar_hash = common.hash.sha256_file(tar_path)
