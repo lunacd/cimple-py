@@ -12,6 +12,7 @@ def add(
     origin_snapshot: snapshot.models.Snapshot,
     packages: list[pkg.PkgId],
     pkg_index_path: pathlib.Path,
+    parallel: int,
 ) -> snapshot.models.Snapshot:
     # Ensure needed paths exist
     common.util.ensure_path(common.constants.cimple_snapshot_dir)
@@ -41,7 +42,7 @@ def add(
     # Build package
     for package in packages_to_build:
         package_path = pkg_index_path / "pkg" / package.name / package.version
-        output_path = pkg.build_pkg(package_path)
+        output_path = pkg.build_pkg(package_path, parallel=parallel)
 
         # Tar it up and add to snapshot
         # Initially tar it up in a generic name because the sha cannot yet be determined
@@ -91,3 +92,15 @@ def load_snapshot(name: str) -> snapshot.models.Snapshot:
     snapshot_path = common.constants.cimple_snapshot_dir / f"{name}.json"
     with snapshot_path.open("r") as f:
         return snapshot.models.Snapshot.model_validate_json(f.read())
+
+
+def get_pkg_from_snapshot(pkg_name: str, snapshot_name: str) -> str | None:
+    snapshot_data = load_snapshot(snapshot_name)
+    pkg_data: snapshot.models.SnapshotPkg | None = next(
+        filter(lambda item: item.name == pkg_name, snapshot_data.pkgs), None
+    )
+
+    if pkg_data is None:
+        return None
+
+    return f"{pkg_data.name}-{pkg_data.version}-{pkg_data.sha256}.tar.{pkg_data.compression_method}"

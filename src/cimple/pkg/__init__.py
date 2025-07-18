@@ -20,7 +20,7 @@ class PkgId(pydantic.BaseModel):
     version: str
 
 
-def build_pkg(pkg_path: pathlib.Path) -> pathlib.Path:
+def build_pkg(pkg_path: pathlib.Path, parallel: int) -> pathlib.Path:
     config = pkg_config.load_pkg_config(pkg_path)
 
     # Prepare chroot image
@@ -96,10 +96,11 @@ def build_pkg(pkg_path: pathlib.Path) -> pathlib.Path:
     common.logging.info("Starting build")
 
     # TODO: support overriding rules per-platform
-    cimple_builtin_variables = {
+    cimple_builtin_variables: dict[str, str] = {
         "cimple_output_dir": output_dir.as_posix(),
         "cimple_build_dir": build_dir.as_posix(),
         "cimple_image_dir": image_path.as_posix(),
+        "cimple_parallelism": str(parallel),
     }
 
     def interpolate_variables(input_str):

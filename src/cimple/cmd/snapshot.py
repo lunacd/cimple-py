@@ -15,6 +15,7 @@ def change(
     origin_snapshot_name: typing.Annotated[str, typer.Option("--from")],
     add: typing.Annotated[list[str], typer.Option()],
     pkg_index: typing.Annotated[str, typer.Option()],
+    parallel: typing.Annotated[int, typer.Option(help="Number of parallel jobs")],
 ):
     def parse_pkg_id(pkg_str: str) -> pkg.PkgId:
         segments = pkg_str.split("=")
@@ -34,7 +35,10 @@ def change(
     # TODO: handle removal
 
     snapshot_data = snapshot.ops.add(
-        origin_snapshot=origin_snapshot, packages=add_pkgs, pkg_index_path=pathlib.Path(pkg_index)
+        origin_snapshot=origin_snapshot,
+        packages=add_pkgs,
+        pkg_index_path=pathlib.Path(pkg_index),
+        parallel=parallel,
     )
     snapshot.ops.dump_snapshot(snapshot_data)
 
@@ -43,6 +47,7 @@ def change(
 def reproduce(
     reproduce_snapshot_name: typing.Annotated[str, typer.Option],
     pkg_index: typing.Annotated[str, typer.Option()],
+    parallel: typing.Annotated[int, typer.Option(help="Number of parallel jobs")],
 ):
     root_snapshot = snapshot.ops.load_snapshot("root")
     snapshot_to_reproduce = snapshot.ops.load_snapshot(reproduce_snapshot_name)
@@ -53,7 +58,10 @@ def reproduce(
     ]
 
     result_snapshot = snapshot.ops.add(
-        root_snapshot, pkgs_to_add, pkg_index_path=pathlib.Path(pkg_index)
+        root_snapshot,
+        pkgs_to_add,
+        pkg_index_path=pathlib.Path(pkg_index),
+        parallel=parallel,
     )
     pkg_sha_values = {package.name: package.sha256 for package in snapshot_to_reproduce.pkgs}
 

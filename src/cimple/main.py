@@ -12,8 +12,11 @@ app.add_typer(cmd.snapshot.snapshot_app, name="snapshot")
 
 
 @app.command(name="build-pkg")
-def build_pkg(pkg_path: pathlib.Path):
-    pkg.build_pkg(pkg_path)
+def build_pkg(
+    pkg_path: pathlib.Path,
+    parallel: typing.Annotated[int, typer.Option(help="Number of parallel jobs")],
+):
+    pkg.build_pkg(pkg_path, parallel=parallel)
 
 
 @app.command()
