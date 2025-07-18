@@ -1,17 +1,175 @@
 import pathlib
 import tarfile
 
+import networkx as nx
+import patch_ng
+import requests
+
 import cimple.common as common
+import cimple.graph as graph
+import cimple.images as images
+import cimple.pkg.pkg_config as pkg_config
 import cimple.snapshot as snapshot
+from cimple import models
 
 
-def install_pkg(target_path: pathlib.Path, pkg_name: str, snapshot_name: str):
-    # TODO: install transitive dependencies
+def install_package_and_deps(
+    target_path: pathlib.Path, pkg_name: str, snapshot_data: models.snapshot.Snapshot
+):
+    """
+    Install a package and its transitive dependencies into the target path.
+    """
+    # Ensure the target path exists
+    common.util.ensure_path(target_path)
 
-    pkg_full_name = snapshot.ops.get_pkg_from_snapshot(pkg_name, snapshot_name)
+    # Install the package itself
+    install_pkg(target_path, pkg_name, snapshot_data)
 
-    if pkg_full_name is None:
-        raise RuntimeError(f"Requested package {pkg_name} not found in snapshot {snapshot_name}.")
+    # Install transitive dependencies
+    runtime_graph = graph.get_runtime_dep_graph(snapshot_data)
+    transitive_deps = nx.descendants(runtime_graph, pkg_name)
 
-    with tarfile.open(common.constants.cimple_pkg_dir / pkg_full_name, "r") as tar:
+    for dep in transitive_deps:
+        install_pkg(target_path, dep, snapshot_data)
+
+
+def install_pkg(target_path: pathlib.Path, pkg_name: str, snapshot_data: models.snapshot.Snapshot):
+    common.logging.info("Installing %s", pkg_name)
+    pkg_data = snapshot.ops.get_pkg_from_snapshot(pkg_name, snapshot_data)
+
+    if pkg_data is None:
+        raise RuntimeError(f"Requested package {pkg_name} not found in snapshot {snapshot_data}.")
+
+    with tarfile.open(
+        common.constants.cimple_pkg_dir / pkg_data.full_name,
+        common.tarfile.get_tarfile_mode("r", pkg_data.compression_method),
+    ) as tar:
         tar.extractall(target_path, filter=common.tarfile.writable_extract_filter)
+
+
+def build_pkg(
+    pkg_path: pathlib.Path, *, snapshot_data: models.snapshot.Snapshot, parallel: int
+) -> pathlib.Path:
+    config = pkg_config.load_pkg_config(pkg_path)
+
+    # Prepare chroot image
+    common.logging.info("Preparing image")
+    # TODO: support multiple platforms and arch
+    image_path = images.prepare_image("windows", "x86_64", config.input.image_type)
+
+    # Ensure needed directories exist
+    common.util.ensure_path(common.constants.cimple_orig_dir)
+    common.util.ensure_path(common.constants.cimple_pkg_build_dir)
+    common.util.ensure_path(common.constants.cimple_pkg_output_dir)
+
+    # Install dependencies
+    common.logging.info("Installing dependencies")
+    deps_dir = common.constants.cimple_dep_dir / config.pkg.name
+    install_package_and_deps(deps_dir, config.pkg.name, snapshot_data)
+
+    # Get source tarball
+    common.logging.info("Fetching original source")
+    pkg_full_name = f"{config.pkg.name}-{config.pkg.version}"
+    pkg_tarball_name = (
+        f"{config.pkg.name}-{config.input.source_version}.tar.{config.input.tarball_compression}"
+    )
+    orig_file = common.constants.cimple_orig_dir / pkg_tarball_name
+    if not orig_file.exists():
+        source_url = f"https://cimple-pi.lunacd.com/orig/{pkg_tarball_name}"
+        res = requests.get(source_url)
+        res.raise_for_status()
+        with orig_file.open("wb") as f:
+            f.write(res.content)
+
+    # Verify source tarball
+    common.logging.info("Verifying original source")
+    orig_hash = common.hash.sha256_file(orig_file)
+    if orig_hash != config.input.sha256:
+        raise RuntimeError(
+            "Corrupted original source tarball, "
+            f"expecting SHA256 {config.input.sha256} but got {orig_hash}."
+        )
+
+    # Prepare build and output directories
+    build_dir = common.constants.cimple_pkg_build_dir / pkg_full_name
+    output_dir = common.constants.cimple_pkg_output_dir / pkg_full_name
+    common.util.clear_path(build_dir)
+    common.util.clear_path(output_dir)
+
+    # Extract source tarball
+    # TODO: make this unique per build somehow
+    common.logging.info("Extracting original source")
+    with tarfile.open(
+        orig_file, common.tarfile.get_tarfile_mode("r", config.input.tarball_compression)
+    ) as tar:
+        if config.input.tarball_root_dir is None:
+            tar.extractall(build_dir, filter=common.tarfile.writable_extract_filter)
+        else:
+            common.tarfile.extract_directory_from_tar(tar, config.input.tarball_root_dir, build_dir)
+
+    common.logging.info("Patching source")
+    patch_dir = pkg_path / "patches"
+    for patch_name in config.input.patches:
+        common.logging.info("Applying %s", patch_name)
+        patch_path = patch_dir / patch_name
+        if not patch_path.exists():
+            raise RuntimeError(f"Patch {patch_name} is not found in {patch_dir}.")
+
+        patch = patch_ng.fromfile(patch_path)
+        if isinstance(patch, bool):
+            raise RuntimeError(f"Failed to load patch {patch_name}")
+        # NOTE: It'll be nice to check whether the patch applies correctly in this step and
+        # give error message about what patch fails with what file. I haven't figured out
+        # how to do this with patch-ng.
+        patch_success = patch.apply(root=build_dir)
+        if not patch_success:
+            raise RuntimeError(f"Failed to apply {patch_name}.")
+
+    common.logging.info("Starting build")
+
+    # TODO: support overriding rules per-platform
+    cimple_builtin_variables: dict[str, str] = {
+        "cimple_output_dir": output_dir.as_posix(),
+        "cimple_build_dir": build_dir.as_posix(),
+        "cimple_image_dir": image_path.as_posix(),
+        "cimple_parallelism": str(parallel),
+    }
+
+    def interpolate_variables(input_str):
+        return common.str_interpolation.interpolate(input_str, cimple_builtin_variables)
+
+    for rule in config.rules.default:
+        if isinstance(rule, str):
+            cmd: list[str] = rule.split(" ")
+            cwd = build_dir
+            env = {}
+        else:
+            cmd = rule.rule if isinstance(rule.rule, list) else rule.rule.split(" ")
+            cwd = pathlib.Path(interpolate_variables(rule.cwd)) if rule.cwd else build_dir
+            env = rule.env if rule.env else {}
+
+        interpolated_cmd = []
+        interpolated_env = {}
+
+        for cmd_item in cmd:
+            interpolated_cmd.append(interpolate_variables(cmd_item))
+        for env_key, env_val in env.items():
+            interpolated_env[interpolate_variables(env_key)] = interpolate_variables(env_val)
+
+        process = common.cmd.run_command(
+            interpolated_cmd,
+            image_path=image_path,
+            dependency_path=None,
+            cwd=cwd,
+            env=interpolated_env,
+        )
+        if process.returncode != 0:
+            raise RuntimeError(
+                f"Failed executing {' '.join(cmd)}, return code {process.returncode}."
+            )
+
+    common.logging.info("Fixing permissions in output directory")
+    common.util.fix_permissions(output_dir)
+
+    common.logging.info("Build result is available in %s", output_dir)
+    return output_dir

@@ -4,16 +4,16 @@ import tarfile
 import tempfile
 
 import cimple.common as common
+import cimple.models as models
 import cimple.pkg as pkg
-import cimple.snapshot as snapshot
 
 
 def add(
-    origin_snapshot: snapshot.models.Snapshot,
-    packages: list[pkg.PkgId],
+    origin_snapshot: models.snapshot.Snapshot,
+    packages: list[models.pkg.PkgId],
     pkg_index_path: pathlib.Path,
     parallel: int,
-) -> snapshot.models.Snapshot:
+) -> models.snapshot.Snapshot:
     # Ensure needed paths exist
     common.util.ensure_path(common.constants.cimple_snapshot_dir)
     common.util.ensure_path(common.constants.cimple_pkg_dir)
@@ -25,7 +25,7 @@ def add(
         package_path = pkg_index_path / "pkg" / package.name / package.version
         pkg_config = pkg.pkg_config.load_pkg_config(package_path)
         snapshot_data.pkgs.append(
-            snapshot.models.SnapshotPkg(
+            models.snapshot.SnapshotPkg(
                 name=package.name,
                 version=package.version,
                 depends=pkg_config.pkg.depends,
@@ -42,7 +42,9 @@ def add(
     # Build package
     for package in packages_to_build:
         package_path = pkg_index_path / "pkg" / package.name / package.version
-        output_path = pkg.build_pkg(package_path, parallel=parallel)
+        output_path = pkg.ops.build_pkg(
+            package_path, parallel=parallel, snapshot_data=origin_snapshot
+        )
 
         # Tar it up and add to snapshot
         # Initially tar it up in a generic name because the sha cannot yet be determined
@@ -71,7 +73,7 @@ def remove():
     pass
 
 
-def dump_snapshot(snapshot_data: snapshot.models.Snapshot):
+def dump_snapshot(snapshot_data: models.snapshot.Snapshot):
     snapshot_name = datetime.datetime.now(tz=datetime.UTC).strftime("%Y%m%d-%H%M%S")
     snapshot_manifest = common.constants.cimple_snapshot_dir / f"{snapshot_name}.json"
     if snapshot_manifest.exists():
@@ -80,27 +82,26 @@ def dump_snapshot(snapshot_data: snapshot.models.Snapshot):
         f.write(snapshot_data.model_dump_json())
 
 
-def load_snapshot(name: str) -> snapshot.models.Snapshot:
+def load_snapshot(name: str) -> models.snapshot.Snapshot:
     if name == "root":
-        return snapshot.models.Snapshot(
+        return models.snapshot.Snapshot(
             version=0,
             pkgs=[],
             ancestor="root",
-            changes=snapshot.models.SnapshotChanges(add=[], remove=[]),
+            changes=models.snapshot.SnapshotChanges(add=[], remove=[]),
         )
 
     snapshot_path = common.constants.cimple_snapshot_dir / f"{name}.json"
     with snapshot_path.open("r") as f:
-        return snapshot.models.Snapshot.model_validate_json(f.read())
+        return models.snapshot.Snapshot.model_validate_json(f.read())
 
 
-def get_pkg_from_snapshot(pkg_name: str, snapshot_name: str) -> str | None:
-    snapshot_data = load_snapshot(snapshot_name)
-    pkg_data: snapshot.models.SnapshotPkg | None = next(
+def get_pkg_from_snapshot(
+    pkg_name: str, snapshot_data: models.snapshot.Snapshot
+) -> models.snapshot.SnapshotPkg | None:
+    # TODO: this is O(n), revisit when package index grows larger
+    pkg_data: models.snapshot.SnapshotPkg | None = next(
         filter(lambda item: item.name == pkg_name, snapshot_data.pkgs), None
     )
 
-    if pkg_data is None:
-        return None
-
-    return f"{pkg_data.name}-{pkg_data.version}-{pkg_data.sha256}.tar.{pkg_data.compression_method}"
+    return pkg_data

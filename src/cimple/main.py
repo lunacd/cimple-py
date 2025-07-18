@@ -6,6 +6,7 @@ import typer
 import cimple.cmd as cmd
 import cimple.images as images
 import cimple.pkg as pkg
+import cimple.snapshot as snapshot
 
 app = typer.Typer()
 app.add_typer(cmd.snapshot.snapshot_app, name="snapshot")
@@ -14,9 +15,13 @@ app.add_typer(cmd.snapshot.snapshot_app, name="snapshot")
 @app.command(name="build-pkg")
 def build_pkg(
     pkg_path: pathlib.Path,
-    parallel: typing.Annotated[int, typer.Option(help="Number of parallel jobs")],
+    snapshot_name: typing.Annotated[
+        str, typer.Option("--snapshot", help="Snapshot to build against")
+    ],
+    parallel: typing.Annotated[int, typer.Option(help="Number of parallel jobs")] = 1,
 ):
-    pkg.build_pkg(pkg_path, parallel=parallel)
+    snapshot_data = snapshot.ops.load_snapshot(snapshot_name)
+    pkg.ops.build_pkg(pkg_path, parallel=parallel, snapshot_data=snapshot_data)
 
 
 @app.command()

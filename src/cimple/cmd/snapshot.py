@@ -4,8 +4,8 @@ import typing
 import typer
 
 import cimple.common as common
-import cimple.pkg as pkg
 import cimple.snapshot as snapshot
+from cimple import models
 
 snapshot_app = typer.Typer()
 
@@ -15,16 +15,16 @@ def change(
     origin_snapshot_name: typing.Annotated[str, typer.Option("--from")],
     add: typing.Annotated[list[str], typer.Option()],
     pkg_index: typing.Annotated[str, typer.Option()],
-    parallel: typing.Annotated[int, typer.Option(help="Number of parallel jobs")],
+    parallel: typing.Annotated[int, typer.Option(help="Number of parallel jobs")] = 1,
 ):
-    def parse_pkg_id(pkg_str: str) -> pkg.PkgId:
+    def parse_pkg_id(pkg_str: str) -> models.pkg.PkgId:
         segments = pkg_str.split("=")
         if len(segments) != 2:
             raise RuntimeError(
                 f"{pkg_str} is not a valid package ID. Pass in <pkg name>=<pkg version>"
             )
 
-        return pkg.PkgId(name=segments[0], version=segments[1])
+        return models.pkg.PkgId(name=segments[0], version=segments[1])
 
     add_pkgs = [parse_pkg_id(pkg_str) for pkg_str in add] if len(add) > 0 else []
 
@@ -53,7 +53,7 @@ def reproduce(
     snapshot_to_reproduce = snapshot.ops.load_snapshot(reproduce_snapshot_name)
 
     pkgs_to_add = [
-        pkg.PkgId(name=package.name, version=package.version)
+        models.pkg.PkgId(name=package.name, version=package.version)
         for package in snapshot_to_reproduce.pkgs
     ]
 

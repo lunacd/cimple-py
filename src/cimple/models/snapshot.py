@@ -2,7 +2,7 @@ import typing
 
 import pydantic
 
-import cimple.pkg as pkg
+import cimple.models.pkg as pkg
 
 
 class SnapshotPkg(pydantic.BaseModel):
@@ -12,6 +12,11 @@ class SnapshotPkg(pydantic.BaseModel):
     compression_method: typing.Literal["xz"]
     depends: list[str]
     build_depends: list[str]
+
+    @pydantic.computed_field
+    @property
+    def full_name(self) -> str:
+        return f"{self.name}-{self.version}-{self.sha256}.tar.{self.compression_method}"
 
 
 class SnapshotChanges(pydantic.BaseModel):
