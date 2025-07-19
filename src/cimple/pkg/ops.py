@@ -171,7 +171,7 @@ def build_pkg(
         process = common.cmd.run_command(
             interpolated_cmd,
             image_path=image_path,
-            dependency_path=None,
+            dependency_path=deps_dir,
             cwd=cwd,
             env=interpolated_env,
         )
