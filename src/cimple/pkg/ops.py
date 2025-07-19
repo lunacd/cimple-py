@@ -65,12 +65,6 @@ def build_pkg(
     common.util.ensure_path(common.constants.cimple_pkg_build_dir)
     common.util.ensure_path(common.constants.cimple_pkg_output_dir)
 
-    # Install dependencies
-    common.logging.info("Installing dependencies")
-    deps_dir = common.constants.cimple_dep_dir / config.pkg.name
-    for dep in config.pkg.build_depends:
-        install_package_and_deps(deps_dir, dep, snapshot_map)
-
     # Get source tarball
     common.logging.info("Fetching original source")
     pkg_full_name = f"{config.pkg.name}-{config.pkg.version}"
@@ -93,6 +87,13 @@ def build_pkg(
             "Corrupted original source tarball, "
             f"expecting SHA256 {config.input.sha256} but got {orig_hash}."
         )
+
+    # Install dependencies
+    common.logging.info("Installing dependencies")
+    deps_dir = common.constants.cimple_dep_dir / pkg_full_name
+    common.util.clear_path(deps_dir)
+    for dep in config.pkg.build_depends:
+        install_package_and_deps(deps_dir, dep, snapshot_map)
 
     # Prepare build and output directories
     build_dir = common.constants.cimple_pkg_build_dir / pkg_full_name
@@ -131,17 +132,24 @@ def build_pkg(
 
     common.logging.info("Starting build")
 
-    # TODO: support overriding rules per-platform
+    # TODO: built-in variables will likely need a more organized way to pass around
     cimple_builtin_variables: dict[str, str] = {
         "cimple_output_dir": output_dir.as_posix(),
         "cimple_build_dir": build_dir.as_posix(),
         "cimple_image_dir": image_path.as_posix(),
         "cimple_parallelism": str(parallel),
     }
+    # TODO: remove hard-coded platform and arch
+    cimple_builtin_variables.update(
+        images.ops.get_image_specific_builtin_variables(
+            "windows", "x86_64", config.input.image_type, cimple_builtin_variables
+        )
+    )
 
     def interpolate_variables(input_str):
         return common.str_interpolation.interpolate(input_str, cimple_builtin_variables)
 
+    # TODO: support overriding rules per-platform
     for rule in config.rules.default:
         if isinstance(rule, str):
             cmd: list[str] = rule.split(" ")
