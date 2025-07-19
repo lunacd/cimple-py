@@ -9,12 +9,11 @@ import cimple.common as common
 import cimple.graph as graph
 import cimple.images as images
 import cimple.pkg.pkg_config as pkg_config
-import cimple.snapshot as snapshot
 from cimple import models
 
 
 def install_package_and_deps(
-    target_path: pathlib.Path, pkg_name: str, snapshot_data: models.snapshot.Snapshot
+    target_path: pathlib.Path, pkg_name: str, snapshot_map: models.snapshot.SnapshotMap
 ):
     """
     Install a package and its transitive dependencies into the target path.
@@ -23,32 +22,36 @@ def install_package_and_deps(
     common.util.ensure_path(target_path)
 
     # Install the package itself
-    install_pkg(target_path, pkg_name, snapshot_data)
+    install_pkg(target_path, pkg_name, snapshot_map)
 
     # Install transitive dependencies
-    runtime_graph = graph.get_runtime_dep_graph(snapshot_data)
+    runtime_graph = graph.get_runtime_dep_graph(snapshot_map)
     transitive_deps = nx.descendants(runtime_graph, pkg_name)
 
     for dep in transitive_deps:
-        install_pkg(target_path, dep, snapshot_data)
+        install_pkg(target_path, dep, snapshot_map)
 
 
-def install_pkg(target_path: pathlib.Path, pkg_name: str, snapshot_data: models.snapshot.Snapshot):
+def install_pkg(
+    target_path: pathlib.Path, pkg_name: str, snapshot_map: models.snapshot.SnapshotMap
+):
     common.logging.info("Installing %s", pkg_name)
-    pkg_data = snapshot.ops.get_pkg_from_snapshot(pkg_name, snapshot_data)
+    pkg_data = snapshot_map.pkgs.get(pkg_name, None)
 
     if pkg_data is None:
-        raise RuntimeError(f"Requested package {pkg_name} not found in snapshot {snapshot_data}.")
+        raise RuntimeError(
+            f"Requested package {pkg_name} not found in snapshot {snapshot_map.name}."
+        )
 
     with tarfile.open(
-        common.constants.cimple_pkg_dir / pkg_data.full_name,
+        common.constants.cimple_pkg_dir / pkg_data.full_name(),
         common.tarfile.get_tarfile_mode("r", pkg_data.compression_method),
     ) as tar:
         tar.extractall(target_path, filter=common.tarfile.writable_extract_filter)
 
 
 def build_pkg(
-    pkg_path: pathlib.Path, *, snapshot_data: models.snapshot.Snapshot, parallel: int
+    pkg_path: pathlib.Path, *, snapshot_map: models.snapshot.SnapshotMap, parallel: int
 ) -> pathlib.Path:
     config = pkg_config.load_pkg_config(pkg_path)
 
@@ -65,7 +68,8 @@ def build_pkg(
     # Install dependencies
     common.logging.info("Installing dependencies")
     deps_dir = common.constants.cimple_dep_dir / config.pkg.name
-    install_package_and_deps(deps_dir, config.pkg.name, snapshot_data)
+    for dep in config.pkg.build_depends:
+        install_package_and_deps(deps_dir, dep, snapshot_map)
 
     # Get source tarball
     common.logging.info("Fetching original source")

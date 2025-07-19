@@ -20,8 +20,8 @@ def build_pkg(
     ],
     parallel: typing.Annotated[int, typer.Option(help="Number of parallel jobs")] = 1,
 ):
-    snapshot_data = snapshot.ops.load_snapshot(snapshot_name)
-    pkg.ops.build_pkg(pkg_path, parallel=parallel, snapshot_data=snapshot_data)
+    snapshot_map = snapshot.ops.load_snapshot(snapshot_name)
+    pkg.ops.build_pkg(pkg_path, parallel=parallel, snapshot_map=snapshot_map)
 
 
 @app.command()
