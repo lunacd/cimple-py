@@ -64,6 +64,7 @@ def build_pkg(
     common.util.ensure_path(common.constants.cimple_orig_dir)
     common.util.ensure_path(common.constants.cimple_pkg_build_dir)
     common.util.ensure_path(common.constants.cimple_pkg_output_dir)
+    common.util.ensure_path(common.constants.cimple_deps_dir)
 
     # Get source tarball
     common.logging.info("Fetching original source")
@@ -90,7 +91,7 @@ def build_pkg(
 
     # Install dependencies
     common.logging.info("Installing dependencies")
-    deps_dir = common.constants.cimple_dep_dir / pkg_full_name
+    deps_dir = common.constants.cimple_deps_dir / pkg_full_name
     common.util.clear_path(deps_dir)
     for dep in config.pkg.build_depends:
         install_package_and_deps(deps_dir, dep, snapshot_map)
@@ -137,6 +138,7 @@ def build_pkg(
         "cimple_output_dir": output_dir.as_posix(),
         "cimple_build_dir": build_dir.as_posix(),
         "cimple_image_dir": image_path.as_posix(),
+        "cimple_deps_dir": deps_dir.as_posix(),
         "cimple_parallelism": str(parallel),
     }
     # TODO: remove hard-coded platform and arch

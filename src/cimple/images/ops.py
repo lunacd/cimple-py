@@ -20,6 +20,9 @@ def get_image_specific_builtin_variables(
             "cimple_image_dir_cygwin": common.system.to_cygwin_path(
                 pathlib.Path(variables["cimple_image_dir"])
             ).as_posix(),
+            "cimple_deps_dir_cygwin": common.system.to_cygwin_path(
+                pathlib.Path(variables["cimple_deps_dir"])
+            ).as_posix(),
         }
 
     return {}
