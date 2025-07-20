@@ -159,7 +159,8 @@ def build_pkg(
             env = {}
         else:
             cmd = rule.rule if isinstance(rule.rule, list) else rule.rule.split(" ")
-            cwd = pathlib.Path(interpolate_variables(rule.cwd)) if rule.cwd else build_dir
+            # TODO: Check to make sure cwd is valid and relative
+            cwd = build_dir / interpolate_variables(rule.cwd) if rule.cwd else build_dir
             env = rule.env if rule.env else {}
 
         interpolated_cmd = []
