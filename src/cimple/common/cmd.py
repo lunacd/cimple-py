@@ -53,6 +53,7 @@ def run_command(
     if env is None:
         env = {}
     env.update(baseline_env())
+    # TODO: if PATH is specified in env, merge with it.
     env.update({"PATH": path})
 
     common.logging.debug("Executing %s in %s, env %s", " ".join(args), cwd, env)
