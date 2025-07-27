@@ -183,8 +183,5 @@ def build_pkg(
                 f"Failed executing {' '.join(cmd)}, return code {process.returncode}."
             )
 
-    common.logging.info("Fixing permissions in output directory")
-    common.util.fix_permissions(output_dir)
-
     common.logging.info("Build result is available in %s", output_dir)
     return output_dir

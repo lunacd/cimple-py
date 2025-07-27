@@ -19,7 +19,11 @@ def clear_path(path: pathlib.Path):
     """
 
     if path.exists():
-        shutil.rmtree(path)
+        try:
+            shutil.rmtree(path)
+        except PermissionError:
+            fix_permissions(path)
+            shutil.rmtree(path)
 
     path.mkdir()
 
