@@ -23,8 +23,8 @@ def construct_path_env_var(
 
     path_arr: list[str] = []
     if dependency_path is not None:
-        # No /usr is allowed in the package index
         path_arr.append(str(dependency_path / "bin"))
+        path_arr.append(str(dependency_path / "usr" / "bin"))
     if image_path is not None:
         path_arr.append(str(image_path / "usr" / "bin"))
 
