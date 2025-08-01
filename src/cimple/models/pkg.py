@@ -38,6 +38,10 @@ class PkgId(pydantic.RootModel):
 
     root: typing.Union[SrcPkgId, BinPkgId] = pydantic.Field(discriminator="pkg_type")  # noqa: UP007
 
+    @property
+    def full_name(self) -> str:
+        return self.root.full_name
+
 
 def pkg_is_src(pkg_id: SrcPkgId | BinPkgId) -> typing.TypeGuard[SrcPkgId]:
     return pkg_id.pkg_type == "src"

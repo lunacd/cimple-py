@@ -54,15 +54,31 @@ class PkgConfigRules(pydantic.BaseModel):
     default: list[str | PkgConfigRule]
 
 
-class PkgConfig(pydantic.BaseModel):
+class PkgConfigCustom(pydantic.BaseModel):
     """
     Config for a cimple PI package
     """
 
     schema_version: typing.Literal[0]
+    pkg_type: typing.Literal["custom"] = "custom"
     pkg: PkgConfigPkg
     input: PkgConfigInput
     rules: PkgConfigRules
+
+
+class PkgConfigCygwin(pydantic.BaseModel):
+    """
+    Config for a Cygwin package
+    """
+
+    schema_version: typing.Literal[0]
+    pkg_type: typing.Literal["cygwin"] = "cygwin"
+    pkg_name: str
+    pkg_version: str
+
+
+class PkgConfig(pydantic.RootModel):
+    root: typing.Union[PkgConfigCustom, PkgConfigCygwin] = pydantic.Field(discriminator="pkg_type")  # noqa: UP007
 
 
 def load_pkg_config(pkg_path: pathlib.Path):

@@ -115,6 +115,7 @@ def get_snapshot_pkg_from_str_id(snapshot_map: SnapshotMap, pkg_str: str) -> Sna
 
 
 def get_snapshot_pkg_from_pkg_id(
-    snapshot_map: SnapshotMap, pkg_id: pkg.PkgId
+    snapshot_map: SnapshotMap,
+    pkg_id: pkg.PkgId | pkg.BinPkgId | pkg.SrcPkgId,
 ) -> SnapshotPkg | None:
-    return get_snapshot_pkg_from_str_id(snapshot_map, pkg_id.root.full_name)
+    return get_snapshot_pkg_from_str_id(snapshot_map, pkg_id.full_name)

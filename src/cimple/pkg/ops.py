@@ -25,27 +25,36 @@ def install_package_and_deps(
     install_pkg(target_path, pkg_name, snapshot_map)
 
     # Install transitive dependencies
-    runtime_graph = graph.get_runtime_dep_graph(snapshot_map)
-    transitive_deps = nx.descendants(runtime_graph, pkg_name)
+    deps_graph = graph.get_dep_graph(snapshot_map)
+    transitive_deps = nx.descendants(deps_graph, pkg_name)
+    transitive_bin_deps = filter(lambda item: models.pkg.str_pkg_is_bin(item), transitive_deps)
 
-    for dep in transitive_deps:
+    for dep in transitive_bin_deps:
         install_pkg(target_path, dep, snapshot_map)
 
 
 def install_pkg(
-    target_path: pathlib.Path, pkg_name: str, snapshot_map: models.snapshot.SnapshotMap
+    target_path: pathlib.Path,
+    pkg_id: models.pkg.BinPkgId,
+    snapshot_map: models.snapshot.SnapshotMap,
 ):
-    common.logging.info("Installing %s", pkg_name)
-    pkg_data = snapshot_map.pkgs.get(pkg_name, None)
+    common.logging.info("Installing %s", pkg_id.name)
+    pkg_data = models.snapshot.get_snapshot_pkg_from_pkg_id(snapshot_map, pkg_id)
 
     if pkg_data is None:
         raise RuntimeError(
-            f"Requested package {pkg_name} not found in snapshot {snapshot_map.name}."
+            f"Requested package {pkg_id.full_name} not found in snapshot {snapshot_map.name}."
+        )
+    assert models.snapshot.snapshot_pkg_is_bin(pkg_data.root)
+
+    if pkg_data is None:
+        raise RuntimeError(
+            f"Requested package {pkg_id.full_name} not found in snapshot {snapshot_map.name}."
         )
 
     with tarfile.open(
-        common.constants.cimple_pkg_dir / pkg_data.full_name(),
-        common.tarfile.get_tarfile_mode("r", pkg_data.compression_method),
+        common.constants.cimple_pkg_dir / pkg_data.root.tarball_name,
+        common.tarfile.get_tarfile_mode("r", pkg_data.root.compression_method),
     ) as tar:
         tar.extractall(target_path, filter=common.tarfile.writable_extract_filter)
 
