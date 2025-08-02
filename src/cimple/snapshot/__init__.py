@@ -1,5 +1,5 @@
-__all__ = ["ops"]
+__all__ = ["ops", "core"]
 
 
 # Re-exports
-import cimple.snapshot.ops as ops
+from cimple.snapshot import core, ops
