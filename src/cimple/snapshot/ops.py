@@ -1,31 +1,28 @@
-import datetime
 import pathlib
 import tarfile
 import tempfile
-import typing
-
-import networkx as nx
 
 from cimple import common, models, pkg
+from cimple.snapshot import core
 
 
 def add(
-    origin_snapshot_map: models.snapshot.SnapshotMap,
+    origin_snapshot: core.CimpleSnapshot,
     packages: list[models.pkg.PkgId],
     pkg_index_path: pathlib.Path,
     parallel: int,
-) -> models.snapshot.SnapshotMap:
+) -> core.CimpleSnapshot:
     # Ensure needed paths exist
     common.util.ensure_path(common.constants.cimple_snapshot_dir)
     common.util.ensure_path(common.constants.cimple_pkg_dir)
 
-    new_snapshot_map = origin_snapshot_map
+    new_snapshot = origin_snapshot
 
     # Add package to snapshot
     for package in packages:
         package_path = pkg_index_path / "pkg" / package.name / package.version
         pkg_config = pkg.pkg_config.load_pkg_config(package_path)
-        new_snapshot_map.pkgs[package.name] = models.snapshot.SnapshotPkg(
+        new_snapshot.pkgs[package.name] = models.snapshot.SnapshotPkg(
             name=package.name,
             version=package.version,
             depends=pkg_config.pkg.depends,
@@ -69,4 +66,3 @@ def add(
 
 def remove():
     pass
-
