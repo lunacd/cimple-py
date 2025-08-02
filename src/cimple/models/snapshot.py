@@ -14,7 +14,7 @@ class SnapshotSrcPkg(pydantic.BaseModel):
 
     @property
     def id(self) -> pkg.SrcPkgId:
-        return pkg.SrcPkgId(name=self.name, version=self.version)
+        return typing.cast("pkg.SrcPkgId", f"src:{self.name}-{self.version}")
 
 
 class SnapshotBinPkg(pydantic.BaseModel):
@@ -26,7 +26,7 @@ class SnapshotBinPkg(pydantic.BaseModel):
 
     @property
     def id(self) -> pkg.BinPkgId:
-        return pkg.BinPkgId(name=self.name, sha256=self.sha256)
+        return typing.cast("pkg.BinPkgId", f"bin:{self.name}")
 
     @property
     def tarball_name(self) -> str:
@@ -64,57 +64,3 @@ class Snapshot(pydantic.BaseModel):
     pkgs: list[SnapshotPkg]
     ancestor: str
     changes: SnapshotChanges
-
-
-class SnapshotMap(pydantic.BaseModel):
-    """
-    A map of package names to their snapshot data.
-    This is used to quickly look up package data by name.
-    """
-
-    version: typing.Literal[0]
-    name: str
-    pkgs: dict[str, SnapshotPkg]
-    ancestor: str
-    changes: SnapshotChanges
-
-
-def get_snapshot_json_from_map(snapshot_map: SnapshotMap) -> Snapshot:
-    """
-    Convert a SnapshotMap to a Snapshot.
-    """
-    return Snapshot(
-        version=snapshot_map.version,
-        name=snapshot_map.name,
-        pkgs=list(snapshot_map.pkgs.values()),
-        ancestor=snapshot_map.ancestor,
-        changes=snapshot_map.changes,
-    )
-
-
-def get_snapshot_map_from_json(snapshot_data: Snapshot) -> SnapshotMap:
-    """
-    Convert a Snapshot to a SnapshotMap.
-    """
-    return SnapshotMap(
-        version=snapshot_data.version,
-        name=snapshot_data.name,
-        pkgs={pkg.full_name: pkg for pkg in snapshot_data.pkgs},
-        ancestor=snapshot_data.ancestor,
-        changes=snapshot_data.changes,
-    )
-
-
-def get_snapshot_pkg_from_str_id(snapshot_map: SnapshotMap, pkg_str: str) -> SnapshotPkg | None:
-    """
-    Get a package from a snapshot by its string ID.
-    """
-    if pkg_str in snapshot_map.pkgs:
-        return snapshot_map.pkgs[pkg_str]
-    return None
-
-
-def get_snapshot_pkg_from_pkg_id(
-    snapshot_map: SnapshotMap, pkg_id: pkg.PkgId
-) -> SnapshotPkg | None:
-    return get_snapshot_pkg_from_str_id(snapshot_map, pkg_id.root.full_name)
