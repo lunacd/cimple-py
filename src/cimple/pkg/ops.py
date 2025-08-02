@@ -1,19 +1,17 @@
 import pathlib
 import tarfile
 
-import networkx as nx
 import patch_ng
 import requests
 
-import cimple.common as common
-import cimple.graph as graph
-import cimple.images as images
-import cimple.pkg.pkg_config as pkg_config
-from cimple import models
+from cimple import common, images, models, snapshot
+from cimple.pkg import pkg_config
 
 
 def install_package_and_deps(
-    target_path: pathlib.Path, pkg_name: str, snapshot_map: models.snapshot.SnapshotMap
+    target_path: pathlib.Path,
+    pkg_id: models.pkg.BinPkgId,
+    cimple_snapshot: snapshot.core.CimpleSnapshot,
 ):
     """
     Install a package and its transitive dependencies into the target path.
@@ -22,36 +20,43 @@ def install_package_and_deps(
     common.util.ensure_path(target_path)
 
     # Install the package itself
-    install_pkg(target_path, pkg_name, snapshot_map)
+    install_pkg(target_path, pkg_id, cimple_snapshot)
 
     # Install transitive dependencies
-    runtime_graph = graph.get_runtime_dep_graph(snapshot_map)
-    transitive_deps = nx.descendants(runtime_graph, pkg_name)
+    transitive_bin_deps = cimple_snapshot.runtime_depends_of(pkg_id)
 
-    for dep in transitive_deps:
-        install_pkg(target_path, dep, snapshot_map)
+    for dep in transitive_bin_deps:
+        install_pkg(target_path, dep, cimple_snapshot)
 
 
 def install_pkg(
-    target_path: pathlib.Path, pkg_name: str, snapshot_map: models.snapshot.SnapshotMap
+    target_path: pathlib.Path,
+    pkg_id: models.pkg.BinPkgId,
+    cimple_snapshot: snapshot.core.CimpleSnapshot,
 ):
-    common.logging.info("Installing %s", pkg_name)
-    pkg_data = snapshot_map.pkgs.get(pkg_name, None)
+    common.logging.info("Installing %s", pkg_id)
+
+    pkg_data = cimple_snapshot.get_snapshot_pkg(pkg_id)
+    if pkg_data is None:
+        raise RuntimeError(
+            f"Requested package {pkg_id} not found in snapshot {cimple_snapshot.name}."
+        )
+    assert models.snapshot.snapshot_pkg_is_bin(pkg_data.root)
 
     if pkg_data is None:
         raise RuntimeError(
-            f"Requested package {pkg_name} not found in snapshot {snapshot_map.name}."
+            f"Requested package {pkg_id} not found in snapshot {cimple_snapshot.name}."
         )
 
     with tarfile.open(
-        common.constants.cimple_pkg_dir / pkg_data.full_name(),
-        common.tarfile.get_tarfile_mode("r", pkg_data.compression_method),
+        common.constants.cimple_pkg_dir / pkg_data.root.tarball_name,
+        common.tarfile.get_tarfile_mode("r", pkg_data.root.compression_method),
     ) as tar:
         tar.extractall(target_path, filter=common.tarfile.writable_extract_filter)
 
 
 def build_pkg(
-    pkg_path: pathlib.Path, *, snapshot_map: models.snapshot.SnapshotMap, parallel: int
+    pkg_path: pathlib.Path, *, cimple_snapshot: snapshot.core.CimpleSnapshot, parallel: int
 ) -> pathlib.Path:
     config = pkg_config.load_pkg_config(pkg_path)
 
