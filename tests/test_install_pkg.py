@@ -5,13 +5,11 @@ from cimple import models, pkg, snapshot
 
 def test_install_single_pkg(basic_cimple_store: None):
     # Given: a basic snapshot with binary packages
-    snapshot_map = snapshot.ops.load_snapshot("test-snapshot")
-    pkg1 = models.snapshot.get_snapshot_pkg_from_str_id(snapshot_map, "bin:pkg1-bin")
-    assert pkg1 is not None, "Package pkg1-bin should exist in the snapshot"
-    assert models.snapshot.snapshot_pkg_is_bin(pkg1.root)
+    cimple_snapshot = snapshot.core.load_snapshot("test-snapshot")
+    pkg1 = models.pkg.bin_pkg_id("pkg1-bin")
 
     # When: installing a single package
-    pkg.ops.install_pkg(pathlib.Path("/target/"), pkg1.root.id, snapshot_map)
+    pkg.ops.install_pkg(pathlib.Path("/target/"), pkg1, cimple_snapshot)
 
     # Then: the installation result is successful and includes the expected binary packages
     expected_file = pathlib.Path("/target/pkg-1.txt")
@@ -21,13 +19,11 @@ def test_install_single_pkg(basic_cimple_store: None):
 
 def test_install_pkg_with_dependencies(basic_cimple_store: None):
     # Given: a basic snapshot with binary packages
-    snapshot_map = snapshot.ops.load_snapshot("test-snapshot")
-    pkg2 = models.snapshot.get_snapshot_pkg_from_str_id(snapshot_map, "bin:pkg2-bin")
-    assert pkg2 is not None, "Package pkg2-bin should exist in the snapshot"
-    assert models.snapshot.snapshot_pkg_is_bin(pkg2.root)
+    cimple_snapshot = snapshot.core.load_snapshot("test-snapshot")
+    pkg2 = models.pkg.bin_pkg_id("pkg2-bin")
 
     # When: installing a package with dependencies
-    pkg.ops.install_package_and_deps(pathlib.Path("/target/"), pkg2.root.id, snapshot_map)
+    pkg.ops.install_package_and_deps(pathlib.Path("/target/"), pkg2, cimple_snapshot)
 
     # Then: the installation result is successful and includes the expected binary packages
     #       pkg2-bin depends on pkg3-bin, so both should be installed
