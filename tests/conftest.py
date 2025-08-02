@@ -1,3 +1,4 @@
+import importlib.resources
 import json
 
 import pyfakefs.fake_filesystem
@@ -8,6 +9,7 @@ from cimple import common
 
 @pytest.fixture(name="basic_cimple_store")
 def basic_cimple_store_fixture(fs: pyfakefs.fake_filesystem.FakeFilesystem) -> None:
+    # Create snapshot
     snapshot_data = {
         "version": 0,
         "name": "test_snapshot",
@@ -21,7 +23,7 @@ def basic_cimple_store_fixture(fs: pyfakefs.fake_filesystem.FakeFilesystem) -> N
             },
             {
                 "name": "pkg1-bin",
-                "sha256": "abc123",
+                "sha256": "a4defb8341593d4deea245993aeb3ce54de060affb10cb9ae60ec3789dd3f241",
                 "pkg_type": "bin",
                 "compression_method": "xz",
                 "depends": [],
@@ -35,7 +37,7 @@ def basic_cimple_store_fixture(fs: pyfakefs.fake_filesystem.FakeFilesystem) -> N
             },
             {
                 "name": "pkg2-bin",
-                "sha256": "abc123",
+                "sha256": "ba3a73d0ce858c0da55186acb6b30de036a283812b55e48966f43b5704611914",
                 "pkg_type": "bin",
                 "compression_method": "xz",
                 "depends": ["pkg3-bin"],
@@ -49,7 +51,7 @@ def basic_cimple_store_fixture(fs: pyfakefs.fake_filesystem.FakeFilesystem) -> N
             },
             {
                 "name": "pkg3-bin",
-                "sha256": "def456",
+                "sha256": "870f2deea4a3981df6ed4cccd05df2bd3465a7556e952e812df0cf46240008ec",
                 "pkg_type": "bin",
                 "compression_method": "xz",
                 "depends": [],
@@ -62,3 +64,16 @@ def basic_cimple_store_fixture(fs: pyfakefs.fake_filesystem.FakeFilesystem) -> N
         common.constants.cimple_snapshot_dir / "test-snapshot.json",
         contents=json.dumps(snapshot_data),
     )
+
+    # Add binary packages
+    for pkg in snapshot_data["pkgs"]:
+        if pkg["pkg_type"] != "bin":
+            continue
+
+        pkg_tarball_name = f"{pkg['name']}-{pkg['sha256']}.tar.{pkg['compression_method']}"
+        with importlib.resources.path("tests", f"data/pkg/{pkg_tarball_name}") as pkg_path:
+            fs.add_real_file(
+                pkg_path,
+                read_only=False,
+                target_path=common.constants.cimple_pkg_dir / pkg_tarball_name,
+            )
