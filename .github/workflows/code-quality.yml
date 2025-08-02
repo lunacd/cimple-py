@@ -23,7 +23,13 @@ jobs:
 
       - name: Run tests
         run: |
-          uv run pytest
+          uv run pytest --cov --cov-branch --cov-report=xml
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: lunacd/cimple-py
 
   lint:
     name: lint
@@ -50,4 +56,3 @@ jobs:
       - name: Run ruff-format
         run: |
           uv run ruff format --check --diff .
-          
