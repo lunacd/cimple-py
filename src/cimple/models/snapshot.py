@@ -2,7 +2,7 @@ import typing
 
 import pydantic
 
-import cimple.models.pkg as pkg
+from cimple.models import pkg
 
 
 class SnapshotSrcPkg(pydantic.BaseModel):
