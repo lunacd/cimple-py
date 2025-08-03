@@ -26,7 +26,7 @@ jobs:
 
       - name: Run tests
         run: |
-          uv run pytest --cov --cov-branch --cov-report=xml --junitxml=junit.xml -o junit_family=legacy
+          uv run pytest --cov --cov-branch --cov-report=xml --junitxml=junit.xml
 
       - name: Upload coverage reports to Codecov
         if: ${{ matrix.os == 'windows-latest' }}
