@@ -29,15 +29,14 @@ jobs:
           uv run pytest --cov --cov-branch --cov-report=xml --junitxml=junit.xml -o junit_family=legacy
 
       - name: Upload coverage reports to Codecov
+        if: ${{ matrix.os == 'windows-latest' }}
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: lunacd/cimple-py
-          files: coverage.xml
-          flags: ${{ matrix.os }}
 
       - name: Upload test results to Codecov
-        if: ${{ !cancelled() }}
+        if: ${{ (!cancelled()) && (matrix.os == 'windows-latest') }} 
         uses: codecov/test-results-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
