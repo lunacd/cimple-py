@@ -1,5 +1,6 @@
 import pathlib
 import tarfile
+import typing
 
 import patch_ng
 import requests
@@ -55,11 +56,12 @@ def install_pkg(
         tar.extractall(target_path, filter=common.tarfile.writable_extract_filter)
 
 
-def build_pkg(
-    pkg_path: pathlib.Path, *, cimple_snapshot: snapshot.core.CimpleSnapshot, parallel: int
+def _build_custom_pkg(
+    pkg_config: pkg_config.PkgConfigCustom,
+    *,
+    cimple_snapshot: snapshot.core.CimpleSnapshot,
+    parallel: int,
 ) -> pathlib.Path:
-    config = pkg_config.load_pkg_config(pkg_path)
-
     # Prepare chroot image
     common.logging.info("Preparing image")
     # TODO: support multiple platforms and arch
@@ -190,3 +192,32 @@ def build_pkg(
 
     common.logging.info("Build result is available in %s", output_dir)
     return output_dir
+
+
+
+
+def _build_cygwin_pkg(
+    pkg_config: pkg_config.PkgConfigCustom,
+    *,
+    cimple_snapshot: snapshot.core.CimpleSnapshot,
+) -> pathlib.Path:
+    cygwin_url = f"{common.constants.cygwin_pkg_url}/x86_64/release/{pkg_config.pkg.name}"
+
+
+def build_pkg(
+    pkg_path: pathlib.Path, *, cimple_snapshot: snapshot.core.CimpleSnapshot, parallel: int
+) -> pathlib.Path:
+    config = pkg_config.load_pkg_config(pkg_path)
+
+    match config.root.pkg_type:
+        case "custom":
+            return _build_custom_pkg(
+                typing.cast("pkg_config.PkgConfigCustom", config.root),
+                cimple_snapshot=cimple_snapshot,
+                parallel=parallel,
+            )
+        case "cygwin":
+            return _build_cygwin_pkg(
+                typing.cast("pkg_config.PkgConfigCustom", config.root),
+                cimple_snapshot=cimple_snapshot,
+            )
