@@ -1,5 +1,4 @@
-__all__ = ["pkg_config", "ops"]
+__all__ = ["pkg_config", "ops", "cygwin"]
 
 
-import cimple.pkg.ops as ops
-import cimple.pkg.pkg_config as pkg_config
+from cimple.pkg import cygwin, ops, pkg_config

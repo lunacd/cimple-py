@@ -1,0 +1,9 @@
+schema_version = 0
+pkg_type = "cygwin"
+
+[cygwin]
+name = "make"
+version = "4.4.1-2"
+
+[cygwin.cygwin_location]
+windows-x86_64 = "x86_64/release/make/make-4.4.1-2.tar.xz"

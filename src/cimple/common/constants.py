@@ -14,3 +14,5 @@ cimple_extracted_image_dir = cimple_local_dir / "extracted_image"
 cimple_pkg_build_dir = cimple_local_dir / "pkg_build"
 cimple_pkg_output_dir = cimple_local_dir / "pkg_output"
 cimple_deps_dir = cimple_local_dir / "deps"
+
+cygwin_pkg_url = "https://mirrors.kernel.org/sourceware/cygwin"
