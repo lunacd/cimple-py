@@ -60,7 +60,7 @@ def parse_cygwin_release_for_package(package_name: str, package_version: str) ->
     """
     with tempfile.TemporaryDirectory() as tmpdir:
         output_file_path = download_cygwin_file("x86_64/setup.xz", pathlib.Path(tmpdir))
-        with lzma.open(output_file_path, "rt") as f:
+        with lzma.open(output_file_path, "rt", encoding="utf-8") as f:
             release_content = f.read()
 
     # Parse the release content to find the package section
