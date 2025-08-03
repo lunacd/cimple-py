@@ -34,6 +34,7 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: lunacd/cimple-py
+          flags: ${{ matrix.os }}
 
       - name: Upload test results to Codecov
         if: ${{ (!cancelled()) && (matrix.os == 'windows-latest') }} 
