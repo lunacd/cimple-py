@@ -29,7 +29,6 @@ jobs:
           uv run pytest --cov --cov-branch --cov-report=xml --junitxml=junit.xml
 
       - name: Upload coverage reports to Codecov
-        if: ${{ matrix.os == 'windows-latest' }}
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -37,7 +36,7 @@ jobs:
           flags: ${{ matrix.os }}
 
       - name: Upload test results to Codecov
-        if: ${{ (!cancelled()) && (matrix.os == 'windows-latest') }} 
+        if: ${{ !cancelled() }} 
         uses: codecov/test-results-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
