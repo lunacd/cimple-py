@@ -1,3 +1,6 @@
 flag_management:
   default_rules:
     carryforward: false
+
+ignore:
+  - "tests/"
