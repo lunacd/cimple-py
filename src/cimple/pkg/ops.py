@@ -243,6 +243,6 @@ def build_pkg(
             )
         case "cygwin":
             return _build_cygwin_pkg(
-                typing.cast("pkg_config.PkgConfigCustom", config.root),
+                typing.cast("pkg_config.PkgConfigCygwin", config.root),
                 cimple_snapshot=cimple_snapshot,
             )
