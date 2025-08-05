@@ -25,7 +25,7 @@ def clear_path(path: pathlib.Path):
             fix_permissions(path)
             shutil.rmtree(path)
 
-    path.mkdir()
+    path.mkdir(parents=True)
 
 
 def fix_permissions(path: pathlib.Path):

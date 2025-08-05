@@ -22,7 +22,8 @@ from cimple import common
     ],
 )
 @pytest.mark.skipif(
-    not common.system.is_windows(), reason="This test is only relevant for Cygwin paths on Windows"
+    not common.system.platform_name().startswith("windows"),
+    reason="This test is only relevant for Cygwin paths on Windows",
 )
 def test_cygwin_path(cygwin_path, expected_path):
     """
@@ -33,7 +34,8 @@ def test_cygwin_path(cygwin_path, expected_path):
 
 
 @pytest.mark.skipif(
-    common.system.is_windows(), reason="This test is only for non-Windows systems"
+    common.system.platform_name().startswith("windows"),
+    reason="This test is only for non-Windows systems",
 )
 def test_cygwin_path_is_no_op_on_posix():
     """

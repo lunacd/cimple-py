@@ -1,11 +1,13 @@
 import pathlib
 import tarfile
+import typing
 
 import patch_ng
 import requests
+import tempfile
 
 from cimple import common, images, models, snapshot
-from cimple.pkg import pkg_config
+from cimple.pkg import pkg_config, cygwin
 
 
 def install_package_and_deps(
@@ -55,11 +57,12 @@ def install_pkg(
         tar.extractall(target_path, filter=common.tarfile.writable_extract_filter)
 
 
-def build_pkg(
-    pkg_path: pathlib.Path, *, cimple_snapshot: snapshot.core.CimpleSnapshot, parallel: int
+def _build_custom_pkg(
+    pkg_config: pkg_config.PkgConfigCustom,
+    *,
+    cimple_snapshot: snapshot.core.CimpleSnapshot,
+    parallel: int,
 ) -> pathlib.Path:
-    config = pkg_config.load_pkg_config(pkg_path)
-
     # Prepare chroot image
     common.logging.info("Preparing image")
     # TODO: support multiple platforms and arch
@@ -190,3 +193,56 @@ def build_pkg(
 
     common.logging.info("Build result is available in %s", output_dir)
     return output_dir
+
+
+def _build_cygwin_pkg(
+    pkg_config: pkg_config.PkgConfigCygwin,
+    *,
+    cimple_snapshot: snapshot.core.CimpleSnapshot,
+) -> pathlib.Path:
+    # Download and parse Cygwin release file
+    cygwin_install_path = cygwin.parse_cygwin_release_for_package(
+        pkg_config.cygwin.name, pkg_config.cygwin.version
+    )
+
+    # Prepare output directory
+    output_dir = (
+        common.constants.cimple_pkg_output_dir
+        / f"{pkg_config.cygwin.name}-{pkg_config.cygwin.version}"
+    )
+    common.util.clear_path(output_dir)
+
+    # Download Cygwin tarball
+    with tempfile.TemporaryDirectory() as temp_dir:
+        downloaded_install_file = cygwin.download_cygwin_file(
+            cygwin_install_path, pathlib.Path(temp_dir)
+        )
+
+        # Extract to output directory
+        # TODO: be smarter about the compression method used based on extension
+        with tarfile.open(
+            downloaded_install_file,
+            common.tarfile.get_tarfile_mode("r", "xz"),
+        ) as tar:
+            tar.extractall(output_dir, filter=common.tarfile.writable_extract_filter)
+
+    return output_dir
+
+
+def build_pkg(
+    pkg_path: pathlib.Path, *, cimple_snapshot: snapshot.core.CimpleSnapshot, parallel: int
+) -> pathlib.Path:
+    config = pkg_config.load_pkg_config(pkg_path)
+
+    match config.root.pkg_type:
+        case "custom":
+            return _build_custom_pkg(
+                typing.cast("pkg_config.PkgConfigCustom", config.root),
+                cimple_snapshot=cimple_snapshot,
+                parallel=parallel,
+            )
+        case "cygwin":
+            return _build_cygwin_pkg(
+                typing.cast("pkg_config.PkgConfigCustom", config.root),
+                cimple_snapshot=cimple_snapshot,
+            )

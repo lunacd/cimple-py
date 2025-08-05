@@ -17,7 +17,7 @@ def platform_name() -> str:
         raise RuntimeError(f"Unsupported platform: {platform.system()}")
 
     python_machine = platform.machine()
-    if python_machine == "x86_64":
+    if python_machine == "x86_64" or python_machine == "AMD64":
         arch = "x86_64"
     else:
         raise RuntimeError(f"Unsupported architecture: {python_machine}")
@@ -25,18 +25,11 @@ def platform_name() -> str:
     return f"{os_name}-{arch}"
 
 
-def is_windows() -> bool:
-    """
-    Check if the current operating system is Windows.
-    """
-    return platform.system().startswith("Windows")
-
-
 def to_cygwin_path(path: pathlib.Path) -> pathlib.Path:
     """
     Convert a Windows path to a Cygwin-compatible path.
     """
-    if not is_windows():
+    if not platform_name().startswith("windows"):
         return path
 
     first_segment = path.parts[0]

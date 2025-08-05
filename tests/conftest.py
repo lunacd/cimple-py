@@ -1,5 +1,6 @@
 import importlib.resources
 import json
+import pathlib
 
 import pyfakefs.fake_filesystem
 import pytest
@@ -77,3 +78,11 @@ def basic_cimple_store_fixture(fs: pyfakefs.fake_filesystem.FakeFilesystem) -> N
                 read_only=False,
                 target_path=common.constants.cimple_pkg_dir / pkg_tarball_name,
             )
+
+
+@pytest.fixture(name="cimple_pi")
+def cimple_pi_fixture(fs: pyfakefs.fake_filesystem.FakeFilesystem) -> pathlib.Path:
+    pi_target_path = pathlib.Path("/pi")
+    with importlib.resources.path("tests", "data/pi") as pi_path:
+        fs.add_real_directory(pi_path, target_path=pi_target_path, read_only=True)
+    return pi_target_path

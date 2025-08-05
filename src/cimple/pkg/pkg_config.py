@@ -5,7 +5,7 @@ import typing
 import pydantic
 
 
-class PkgConfigPkg(pydantic.BaseModel):
+class PkgConfigPkgSection(pydantic.BaseModel):
     """
     pkg section of a cimple package config
     """
@@ -21,7 +21,7 @@ class PkgConfigPkg(pydantic.BaseModel):
     build_depends: list[str]
 
 
-class PkgConfigInput(pydantic.BaseModel):
+class PkgConfigInputSection(pydantic.BaseModel):
     """
     input section of a cimple package config
     """
@@ -46,7 +46,7 @@ class PkgConfigRule(pydantic.BaseModel):
     rule: str | list[str]
 
 
-class PkgConfigRules(pydantic.BaseModel):
+class PkgConfigRulesSection(pydantic.BaseModel):
     """
     rules section of a cimple package config
     """
@@ -54,15 +54,40 @@ class PkgConfigRules(pydantic.BaseModel):
     default: list[str | PkgConfigRule]
 
 
-class PkgConfig(pydantic.BaseModel):
+class PkgConfigCustom(pydantic.BaseModel):
     """
     Config for a cimple PI package
     """
 
     schema_version: typing.Literal[0]
-    pkg: PkgConfigPkg
-    input: PkgConfigInput
-    rules: PkgConfigRules
+    pkg_type: typing.Literal["custom"] = "custom"
+    pkg: PkgConfigPkgSection
+    input: PkgConfigInputSection
+    rules: PkgConfigRulesSection
+
+
+class PkgConfigCygwinSection(pydantic.BaseModel):
+    """
+    Cygwin package section of a cimple package config
+    """
+
+    name: str
+    version: str
+
+
+class PkgConfigCygwin(pydantic.BaseModel):
+    """
+    Config for a Cygwin package
+    """
+
+    schema_version: typing.Literal[0]
+    pkg_type: typing.Literal["cygwin"] = "cygwin"
+
+    cygwin: PkgConfigCygwinSection
+
+
+class PkgConfig(pydantic.RootModel):
+    root: typing.Union[PkgConfigCustom, PkgConfigCygwin] = pydantic.Field(discriminator="pkg_type")  # noqa: UP007
 
 
 def load_pkg_config(pkg_path: pathlib.Path):
