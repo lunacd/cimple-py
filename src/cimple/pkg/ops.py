@@ -1,13 +1,13 @@
 import pathlib
 import tarfile
+import tempfile
 import typing
 
 import patch_ng
 import requests
-import tempfile
 
 from cimple import common, images, models, snapshot
-from cimple.pkg import pkg_config, cygwin
+from cimple.pkg import cygwin, pkg_config
 
 
 def install_package_and_deps(
