@@ -69,12 +69,12 @@ class PkgConfigCustom(pydantic.BaseModel):
 
     @property
     def id(self) -> models.pkg.SrcPkgId:
-        return typing.cast("models.pkg.SrcPkgId", f"src:{self.name}")
+        return models.pkg.src_pkg_id(self.name)
 
     @property
     def binary_packages(self) -> list[models.pkg.BinPkgId]:
         # TODO: support multiple binaries per source
-        return [typing.cast("models.pkg.BinPkgId", f"bin:{self.name}")]
+        return [models.pkg.bin_pkg_id(self.name)]
 
 
 class PkgConfigCygwin(pydantic.BaseModel):
@@ -89,13 +89,13 @@ class PkgConfigCygwin(pydantic.BaseModel):
 
     @property
     def id(self) -> models.pkg.SrcPkgId:
-        return typing.cast("models.pkg.SrcPkgId", f"src:{self.name}")
+        return models.pkg.src_pkg_id(self.name)
 
     @property
     def binary_packages(self) -> list[models.pkg.BinPkgId]:
         # Cygwin integration pulls in Cygwin binary packages directly,
         # so it's impossible to have multiple binary packages per source
-        return [typing.cast("models.pkg.BinPkgId", f"bin:{self.name}")]
+        return [models.pkg.bin_pkg_id(self.name)]
 
 
 class PkgConfig(pydantic.RootModel):
