@@ -2,6 +2,7 @@ import lzma
 import pathlib
 import tempfile
 
+import pydantic
 import requests
 
 from cimple import common
@@ -54,49 +55,133 @@ def download_cygwin_file(url_path: str, target_path: pathlib.Path) -> pathlib.Pa
     return output_path
 
 
-def parse_cygwin_release_for_package(package_name: str, package_version: str) -> str:
+class CygwinRelease:
     """
-    Parse the Cygwin release file to get package information.
+    Represents a Cygwin release, providing methods to download and parse package information.
     """
-    with tempfile.TemporaryDirectory() as tmpdir:
-        output_file_path = download_cygwin_file("x86_64/setup.xz", pathlib.Path(tmpdir))
-        with lzma.open(output_file_path, "rt", encoding="utf-8") as f:
-            release_content = f.read()
 
-    # Parse the release content to find the package section
-    package_section: list[str] = []
-    in_section = False
-    for line in release_content.splitlines():
-        # Package section starts with "@ package_name"
-        if line.startswith(f"@ {package_name}"):
-            in_section = True
-            continue
+    class CygwinPackage(pydantic.BaseModel):
+        """
+        Represents a Cygwin package with its name, version, and install path.
+        """
 
-        # Sections are separated by empty lines
-        if in_section:
-            if len(line) == 0:
-                break
+        name: str
+        version: str
+        install_path: str
+        depends: list[str]
 
-            package_section.append(line)
+    def __init__(self):
+        self.packages: dict[str, CygwinRelease.CygwinPackage] = {}
+        self.initialized = False
 
-    found_version = False
-    install_path = None
-    for line in package_section:
-        # TODO: This assumes version field always precedes install field
-        if line.startswith(f"version: {package_version}"):
-            found_version = True
-            continue
+    def parse_release_file(self, release_content: str) -> None:
+        current_package: str | None = None
+        current_version: str | None = None
+        install_path: str | None = None
+        dependencies: list[str] | None = None
 
-        if found_version and line.startswith("install:"):
-            install_path = line.split()[1]
-            break
+        in_field = False
+        field_key = None
+        field_value = None
 
-    if not found_version:
-        raise RuntimeError(f"Package {package_name} version {package_version} not found.")
+        def record_package(current_package, current_version, install_path, dependencies):
+            # Only record if all required fields are present
+            if not current_package or not current_version or not install_path:
+                return
+            key = f"{current_package}-{current_version}"
+            self.packages[key] = self.CygwinPackage(
+                name=current_package,
+                version=current_version,
+                install_path=install_path,
+                depends=dependencies if dependencies is not None else [],
+            )
 
-    if install_path is None:
-        raise RuntimeError(
-            f"Install path for package {package_name} version {package_version} not found."
-        )
+        for line in release_content.splitlines():
+            # Quoted field values
+            if in_field:
+                assert field_value is not None, (
+                    "Field value should not be None when in_field is True"
+                )
+                if line.strip().endswith('"'):
+                    field_value += "\n" + line.strip()[:-1]
+                    # TODO: We currently discard quoted field values immediately
+                    in_field = False
+                    field_key = None
+                    field_value = None
+                else:
+                    field_value += "\n" + line.strip()
+                continue
 
-    return install_path
+            # Start of package section
+            if line.startswith("@ "):
+                current_package = line[2:].strip()
+                continue
+
+            # key : value
+            if ":" in line:
+                field_key, field_value = line.split(":", 1)
+                field_key = field_key.strip()
+                field_value = field_value.strip()
+
+                # Value quoted on the same line
+                if (
+                    field_value.startswith('"')
+                    and field_value.endswith('"')
+                    and len(field_value) > 2
+                ):
+                    field_value = field_value[1:-1].strip()
+                # Value that starts a quote but do not end it
+                elif field_value.startswith('"'):
+                    in_field = True
+                    field_value = field_value[1:].strip()
+                    continue
+
+                # Parse fields of interest
+                if field_key == "version":
+                    if current_package is None:
+                        raise RuntimeError(f"Version line '{line}' found without a package section")
+                    current_version = field_value
+                elif field_key == "install":
+                    if current_package is None or current_version is None:
+                        raise RuntimeError(
+                            "Install line found without a package section or version"
+                        )
+                    install_path = field_value.split()[0]
+                elif field_key == "depends2":
+                    if current_package is None or current_version is None:
+                        raise RuntimeError(
+                            "Depends line found without a package section or version"
+                        )
+                    dependencies = [dep.strip() for dep in field_value.split(",")]
+
+                continue
+
+            # End of package section
+            if len(line.strip()) == 0:
+                record_package(current_package, current_version, install_path, dependencies)
+                current_package = None
+                current_version = None
+                install_path = None
+                dependencies = None
+                continue
+
+            # End of a version section
+            if line.strip() == "[prev]":
+                record_package(current_package, current_version, install_path, dependencies)
+                current_version = None
+                install_path = None
+                dependencies = None
+                continue
+
+        # Record last package if file does not end with newline
+        record_package(current_package, current_version, install_path, dependencies)
+        self.initialized = True
+
+    def parse_release_from_repo(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_file_path = download_cygwin_file("x86_64/setup.xz", pathlib.Path(tmpdir))
+            with lzma.open(output_file_path, "rt", encoding="utf-8") as f:
+                release_content = f.read()
+
+        self.parse_release_file(release_content)
+        self.initialized = True
