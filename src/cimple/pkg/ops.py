@@ -201,9 +201,11 @@ def _build_cygwin_pkg(
     cimple_snapshot: snapshot.core.CimpleSnapshot,
 ) -> pathlib.Path:
     # Download and parse Cygwin release file
-    cygwin_install_path = cygwin.parse_cygwin_release_for_package(
-        pkg_config.cygwin.name, pkg_config.cygwin.version
-    )
+    cygwin_release = cygwin.CygwinRelease()
+    cygwin_release.parse_release_from_repo()
+    cygwin_install_path = cygwin_release.packages[
+        f"{pkg_config.cygwin.name}-{pkg_config.cygwin.version}"
+    ].install_path
 
     # Prepare output directory
     output_dir = (
