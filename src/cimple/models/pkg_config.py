@@ -4,18 +4,16 @@ import typing
 
 import pydantic
 
+from cimple import models
+
 
 class PkgConfigPkgSection(pydantic.BaseModel):
     """
     pkg section of a cimple package config
     """
 
-    name: str
-
     # TODO: get a enum of all possible platforms
     supported_platforms: list[str]
-
-    version: str
 
     depends: list[str]
     build_depends: list[str]
@@ -61,18 +59,22 @@ class PkgConfigCustom(pydantic.BaseModel):
 
     schema_version: typing.Literal[0]
     pkg_type: typing.Literal["custom"] = "custom"
+
+    name: str
+    version: str
+
     pkg: PkgConfigPkgSection
     input: PkgConfigInputSection
     rules: PkgConfigRulesSection
 
+    @property
+    def id(self) -> models.pkg.SrcPkgId:
+        return typing.cast("models.pkg.SrcPkgId", f"src:{self.name}")
 
-class PkgConfigCygwinSection(pydantic.BaseModel):
-    """
-    Cygwin package section of a cimple package config
-    """
-
-    name: str
-    version: str
+    @property
+    def binary_packages(self) -> list[models.pkg.BinPkgId]:
+        # TODO: support multiple binaries per source
+        return [typing.cast("models.pkg.BinPkgId", f"bin:{self.name}")]
 
 
 class PkgConfigCygwin(pydantic.BaseModel):
@@ -82,12 +84,30 @@ class PkgConfigCygwin(pydantic.BaseModel):
 
     schema_version: typing.Literal[0]
     pkg_type: typing.Literal["cygwin"] = "cygwin"
+    name: str
+    version: str
 
-    cygwin: PkgConfigCygwinSection
+    @property
+    def id(self) -> models.pkg.SrcPkgId:
+        return typing.cast("models.pkg.SrcPkgId", f"src:{self.name}")
+
+    @property
+    def binary_packages(self) -> list[models.pkg.BinPkgId]:
+        # Cygwin integration pulls in Cygwin binary packages directly,
+        # so it's impossible to have multiple binary packages per source
+        return [typing.cast("models.pkg.BinPkgId", f"bin:{self.name}")]
 
 
 class PkgConfig(pydantic.RootModel):
     root: typing.Union[PkgConfigCustom, PkgConfigCygwin] = pydantic.Field(discriminator="pkg_type")  # noqa: UP007
+
+    @property
+    def id(self) -> models.pkg.SrcPkgId:
+        return self.root.id
+
+    @property
+    def binary_packages(self) -> list[models.pkg.BinPkgId]:
+        return self.root.binary_packages
 
 
 def load_pkg_config(pkg_path: pathlib.Path):
