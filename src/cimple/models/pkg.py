@@ -14,6 +14,10 @@ def bin_pkg_id(name: str) -> BinPkgId:
     return typing.cast("BinPkgId", f"bin:{name}")
 
 
+def unqualified_pkg_name(id: PkgId) -> str:
+    return id.split(":", 1)[1]
+
+
 def pkg_is_src(pkg_str: PkgId) -> typing.TypeGuard[SrcPkgId]:
     return pkg_str.startswith("src:")
 

@@ -15,7 +15,9 @@ def test_build_cygwin_pkg(
     cimple_snapshot = snapshot.core.load_snapshot("root")
 
     # WHEN: Building a Cygwin package (make)
-    output_path = pkg.ops.build_pkg(cimple_pi / "make", cimple_snapshot=cimple_snapshot, parallel=8)
+    output_path = pkg.ops.build_pkg(
+        "make", "4.4.1-2", pi_path=cimple_pi, cimple_snapshot=cimple_snapshot, parallel=8
+    )
 
     # THEN:
     assert output_path.exists(), f"Output path does not exist: {output_path}"

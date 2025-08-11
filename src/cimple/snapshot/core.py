@@ -1,9 +1,12 @@
+import copy
 import datetime
 import typing
 
 import networkx as nx
 
-from cimple import common, models
+from cimple import common
+from cimple.models import pkg as pkg_models
+from cimple.models import snapshot as snapshot_models
 
 
 class CimpleSnapshot:
@@ -12,7 +15,7 @@ class CimpleSnapshot:
     It provides methods to build the dependency graph and compute build dependencies.
     """
 
-    def __init__(self, snapshot_data: models.snapshot.Snapshot):
+    def __init__(self, snapshot_data: snapshot_models.Snapshot):
         """
         Constructs a directed graph representing the dependencies of packages.
 
@@ -25,44 +28,41 @@ class CimpleSnapshot:
         self.graph = nx.DiGraph()
 
         for package in snapshot_data.pkgs:
-            self.graph.add_node(package.full_name)
+            self.graph.add_node(package.root.id)
 
         for package in snapshot_data.pkgs:
-            if models.snapshot.snapshot_pkg_is_src(package.root):
+            if snapshot_models.snapshot_pkg_is_src(package.root):
                 # Binary packages depends on source package that built them
                 for bin_pkg in package.root.binary_packages:
-                    dep = f"bin:{bin_pkg}"
-                    if not self.graph.has_node(dep):
+                    if not self.graph.has_node(bin_pkg):
                         raise RuntimeError(
                             "Corrupted snapshot! "
-                            f"Binary package {bin_pkg} of {package.full_name} "
+                            f"Binary package {bin_pkg} of {package.root.id} "
                             "not found in snapshot."
                         )
-                    self.graph.add_edge(f"bin:{bin_pkg}", package.full_name)
+                    self.graph.add_edge(bin_pkg, package.root.id)
 
                 # Source package build-depends on other source packages
                 for dep in package.root.build_depends:
-                    dep_name = f"bin:{dep}"
-                    if not self.graph.has_node(dep_name):
+                    if not self.graph.has_node(dep):
                         raise RuntimeError(
-                            f"Corrupted snapshot! Binary package {dep_name} not found in snapshot. "
-                            f"Required by build-depends of {package.full_name}."
+                            f"Corrupted snapshot! Binary package {dep} not found in snapshot. "
+                            f"Required by build-depends of {package.root.id}."
                         )
-                    self.graph.add_edge(package.full_name, dep_name)
+                    self.graph.add_edge(package.root.id, dep)
 
-            elif models.snapshot.snapshot_pkg_is_bin(package.root):
+            elif snapshot_models.snapshot_pkg_is_bin(package.root):
                 # Binary package depends on other binary packages
                 for dep in package.root.depends:
-                    dep_name = f"bin:{dep}"
-                    if not self.graph.has_node(dep_name):
+                    if not self.graph.has_node(dep):
                         raise RuntimeError(
-                            f"Corrupted snapshot! Binary package {dep_name} not found in snapshot. "
-                            f"Required by depends of {package.full_name}."
+                            f"Corrupted snapshot! Binary package {dep} not found in snapshot. "
+                            f"Required by depends of {package.root.id}."
                         )
-                    self.graph.add_edge(package.full_name, dep_name)
+                    self.graph.add_edge(package.root.id, dep)
 
         # Build package map for quick access
-        self.pkg_map = {pkg.full_name: pkg for pkg in snapshot_data.pkgs}
+        self.pkg_map = {pkg.root.id: pkg for pkg in snapshot_data.pkgs}
 
         # Store snapshot metadata
         self.version: typing.Literal[0] = snapshot_data.version
@@ -70,26 +70,34 @@ class CimpleSnapshot:
         self.ancestor = snapshot_data.ancestor
         self.changes = snapshot_data.changes
 
-    def build_depends_of(self, src_pkg: models.pkg.SrcPkgId) -> list[models.pkg.BinPkgId]:
+    @staticmethod
+    def create_from(origin_snapshot: "CimpleSnapshot") -> "CimpleSnapshot":
+        new_snapshot = copy.deepcopy(origin_snapshot)
+        new_snapshot.changes = []
+        new_snapshot.ancestor = origin_snapshot.name
+        new_snapshot.name = datetime.datetime.now(tz=datetime.UTC).strftime("%Y%m%d-%H%M%S")
+        return new_snapshot
+
+    def build_depends_of(self, src_pkg: pkg_models.SrcPkgId) -> list[pkg_models.BinPkgId]:
         """
         Get all binary packages that are required during the build a source package.
         """
-        descendents: list[models.pkg.PkgId] = nx.descendants(self.graph, src_pkg)
-        return list(filter(lambda item: models.pkg.pkg_is_bin(item), descendents))
+        descendents: list[pkg_models.PkgId] = nx.descendants(self.graph, src_pkg)
+        return list(filter(lambda item: pkg_models.pkg_is_bin(item), descendents))
 
-    def runtime_depends_of(self, bin_pkg: models.pkg.BinPkgId) -> list[models.pkg.BinPkgId]:
+    def runtime_depends_of(self, bin_pkg: pkg_models.BinPkgId) -> list[pkg_models.BinPkgId]:
         """
         Get all binary packages that are required at runtime by a binary package.
         """
-        descendents: list[models.pkg.PkgId] = nx.descendants(self.graph, bin_pkg)
-        return list(filter(lambda item: models.pkg.pkg_is_bin(item), descendents))
+        descendents: list[pkg_models.PkgId] = nx.descendants(self.graph, bin_pkg)
+        return list(filter(lambda item: pkg_models.pkg_is_bin(item), descendents))
 
     def dump_snapshot(self):
         """
         Dump the snapshot to a JSON file.
         """
         snapshot_name = datetime.datetime.now(tz=datetime.UTC).strftime("%Y%m%d-%H%M%S")
-        snapshot_data = models.snapshot.Snapshot(
+        snapshot_data = snapshot_models.Snapshot(
             version=self.version,
             name=snapshot_name,
             pkgs=list(self.pkg_map.values()),
@@ -106,23 +114,92 @@ class CimpleSnapshot:
 
     def get_snapshot_pkg(
         self,
-        pkg_id: models.pkg.PkgId,
-    ) -> models.snapshot.SnapshotPkg | None:
+        pkg_id: pkg_models.PkgId,
+    ) -> snapshot_models.SnapshotPkg | None:
         return self.pkg_map.get(pkg_id, None)
+
+    def add_src_pkg(
+        self,
+        pkg_id: pkg_models.SrcPkgId,
+        pkg_version: str,
+        build_depends: list[pkg_models.BinPkgId],
+    ) -> None:
+        """
+        Add a package to the snapshot.
+        """
+        if pkg_id in self.pkg_map:
+            raise RuntimeError(f"Package {pkg_id} already exists in snapshot.")
+
+        # Add package to snapshot map
+        new_snapshot_pkg = snapshot_models.SnapshotPkg(
+            root=snapshot_models.SnapshotSrcPkg(
+                name=pkg_id,
+                version=pkg_version,
+                build_depends=build_depends,
+                binary_packages=[],
+                pkg_type="src",
+            )
+        )
+        self.pkg_map[pkg_id] = new_snapshot_pkg
+        self.changes.add.append(pkg_id)
+
+        # Add package to changes
+        self.changes.add.append(pkg_id)
+
+        # Add package to graph
+        self.graph.add_node(pkg_id)
+        for dep in build_depends:
+            self.graph.add_edge(pkg_id, dep)
+
+    def add_bin_pkg(
+        self,
+        pkg_id: pkg_models.BinPkgId,
+        src_pkg: pkg_models.SrcPkgId,
+        pkg_sha256: str,
+        depends: list[pkg_models.BinPkgId],
+    ) -> None:
+        """
+        Add a binary package to the snapshot.
+        """
+        if pkg_id in self.pkg_map:
+            raise RuntimeError(f"Package {pkg_id} already exists in snapshot.")
+
+        # Add package to snapshot map
+        new_snapshot_pkg = snapshot_models.SnapshotPkg(
+            root=snapshot_models.SnapshotBinPkg(
+                name=pkg_id,
+                sha256=pkg_sha256,
+                compression_method="xz",
+                depends=depends,
+                pkg_type="bin",
+            )
+        )
+        self.pkg_map[pkg_id] = new_snapshot_pkg
+
+        # Add binary package to its source package
+        assert src_pkg in self.pkg_map, f"Source package {src_pkg} not found in snapshot."
+        src_snapshot_pkg = self.pkg_map[src_pkg]
+        assert snapshot_models.snapshot_pkg_is_src(src_snapshot_pkg.root)
+        src_snapshot_pkg.root.binary_packages.append(pkg_id)
+
+        # Add package to graph
+        self.graph.add_node(pkg_id)
+        for dep in depends:
+            self.graph.add_edge(pkg_id, dep)
 
 
 def load_snapshot(name: str) -> CimpleSnapshot:
     if name == "root":
-        snapshot_data = models.snapshot.Snapshot(
+        snapshot_data = snapshot_models.Snapshot(
             version=0,
             name="root",
             pkgs=[],
             ancestor="root",
-            changes=models.snapshot.SnapshotChanges(add=[], remove=[]),
+            changes=snapshot_models.SnapshotChanges(add=[], remove=[]),
         )
     else:
         snapshot_path = common.constants.cimple_snapshot_dir / f"{name}.json"
         with snapshot_path.open("r") as f:
-            snapshot_data = models.snapshot.Snapshot.model_validate_json(f.read())
+            snapshot_data = snapshot_models.Snapshot.model_validate_json(f.read())
 
     return CimpleSnapshot(snapshot_data)

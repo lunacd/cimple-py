@@ -4,7 +4,7 @@ import typing
 
 import pydantic
 
-from cimple import models
+from cimple.models import pkg as models_pkg
 
 
 class PkgConfigPkgSection(pydantic.BaseModel):
@@ -16,7 +16,9 @@ class PkgConfigPkgSection(pydantic.BaseModel):
     supported_platforms: list[str]
 
     depends: list[str]
-    build_depends: list[str]
+    build_depends: typing.Annotated[
+        list[models_pkg.BinPkgId], pydantic.AfterValidator(models_pkg.bin_pkg_id)
+    ]
 
 
 class PkgConfigInputSection(pydantic.BaseModel):
@@ -68,13 +70,17 @@ class PkgConfigCustom(pydantic.BaseModel):
     rules: PkgConfigRulesSection
 
     @property
-    def id(self) -> models.pkg.SrcPkgId:
-        return models.pkg.src_pkg_id(self.name)
+    def id(self) -> models_pkg.SrcPkgId:
+        return models_pkg.src_pkg_id(self.name)
 
     @property
-    def binary_packages(self) -> list[models.pkg.BinPkgId]:
+    def binary_packages(self) -> list[models_pkg.BinPkgId]:
         # TODO: support multiple binaries per source
-        return [models.pkg.bin_pkg_id(self.name)]
+        return [models_pkg.bin_pkg_id(self.name)]
+
+    @property
+    def build_depends(self) -> list[models_pkg.BinPkgId]:
+        return self.pkg.build_depends
 
 
 class PkgConfigCygwin(pydantic.BaseModel):
@@ -88,30 +94,26 @@ class PkgConfigCygwin(pydantic.BaseModel):
     version: str
 
     @property
-    def id(self) -> models.pkg.SrcPkgId:
-        return models.pkg.src_pkg_id(self.name)
+    def id(self) -> models_pkg.SrcPkgId:
+        return models_pkg.src_pkg_id(self.name)
 
     @property
-    def binary_packages(self) -> list[models.pkg.BinPkgId]:
+    def binary_packages(self) -> list[models_pkg.BinPkgId]:
         # Cygwin integration pulls in Cygwin binary packages directly,
         # so it's impossible to have multiple binary packages per source
-        return [models.pkg.bin_pkg_id(self.name)]
+        return [models_pkg.bin_pkg_id(self.name)]
+
+    @property
+    def build_depends(self) -> list[models_pkg.BinPkgId]:
+        return []
 
 
 class PkgConfig(pydantic.RootModel):
     root: typing.Union[PkgConfigCustom, PkgConfigCygwin] = pydantic.Field(discriminator="pkg_type")  # noqa: UP007
 
-    @property
-    def id(self) -> models.pkg.SrcPkgId:
-        return self.root.id
 
-    @property
-    def binary_packages(self) -> list[models.pkg.BinPkgId]:
-        return self.root.binary_packages
-
-
-def load_pkg_config(pkg_path: pathlib.Path):
-    config_path = pkg_path / "pkg.toml"
+def load_pkg_config(pi_path: pathlib.Path, package_name: str, package_version: str):
+    config_path = pi_path / "pkg" / package_name / package_version / "pkg.toml"
     with config_path.open("rb") as f:
         config_dict = tomllib.load(f)
         return PkgConfig.model_validate(config_dict)

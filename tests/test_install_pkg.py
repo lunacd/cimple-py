@@ -1,12 +1,13 @@
 import pathlib
 
-from cimple import models, pkg, snapshot
+from cimple import pkg, snapshot
+from cimple.models import pkg as pkg_models
 
 
 def test_install_single_pkg(basic_cimple_store: None):
     # Given: a basic snapshot with binary packages
     cimple_snapshot = snapshot.core.load_snapshot("test-snapshot")
-    pkg1 = models.pkg.bin_pkg_id("pkg1-bin")
+    pkg1 = pkg_models.bin_pkg_id("pkg1-bin")
 
     # When: installing a single package
     pkg.ops.install_pkg(pathlib.Path("/target/"), pkg1, cimple_snapshot)
@@ -20,7 +21,7 @@ def test_install_single_pkg(basic_cimple_store: None):
 def test_install_pkg_with_dependencies(basic_cimple_store: None):
     # Given: a basic snapshot with binary packages
     cimple_snapshot = snapshot.core.load_snapshot("test-snapshot")
-    pkg2 = models.pkg.bin_pkg_id("pkg2-bin")
+    pkg2 = pkg_models.bin_pkg_id("pkg2-bin")
 
     # When: installing a package with dependencies
     pkg.ops.install_package_and_deps(pathlib.Path("/target/"), pkg2, cimple_snapshot)

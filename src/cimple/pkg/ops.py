@@ -7,7 +7,8 @@ import patch_ng
 import requests
 
 from cimple import common, images, models, snapshot
-from cimple.pkg import cygwin, pkg_config
+from cimple.models import pkg_config
+from cimple.pkg import cygwin
 
 
 def install_package_and_deps(
@@ -204,14 +205,11 @@ def _build_cygwin_pkg(
     cygwin_release = cygwin.CygwinRelease()
     cygwin_release.parse_release_from_repo()
     cygwin_install_path = cygwin_release.packages[
-        f"{pkg_config.cygwin.name}-{pkg_config.cygwin.version}"
+        f"{pkg_config.name}-{pkg_config.version}"
     ].install_path
 
     # Prepare output directory
-    output_dir = (
-        common.constants.cimple_pkg_output_dir
-        / f"{pkg_config.cygwin.name}-{pkg_config.cygwin.version}"
-    )
+    output_dir = common.constants.cimple_pkg_output_dir / f"{pkg_config.name}-{pkg_config.version}"
     common.util.clear_path(output_dir)
 
     # Download Cygwin tarball
@@ -232,9 +230,14 @@ def _build_cygwin_pkg(
 
 
 def build_pkg(
-    pkg_path: pathlib.Path, *, cimple_snapshot: snapshot.core.CimpleSnapshot, parallel: int
+    package_name: str,
+    package_version: str,
+    *,
+    pi_path: pathlib.Path,
+    cimple_snapshot: snapshot.core.CimpleSnapshot,
+    parallel: int,
 ) -> pathlib.Path:
-    config = pkg_config.load_pkg_config(pkg_path)
+    config = pkg_config.load_pkg_config(pi_path, package_name, package_version)
 
     match config.root.pkg_type:
         case "custom":
