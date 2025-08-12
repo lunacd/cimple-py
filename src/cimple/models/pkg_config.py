@@ -112,8 +112,10 @@ class PkgConfig(pydantic.RootModel):
     root: typing.Union[PkgConfigCustom, PkgConfigCygwin] = pydantic.Field(discriminator="pkg_type")  # noqa: UP007
 
 
-def load_pkg_config(pi_path: pathlib.Path, package_name: str, package_version: str):
-    config_path = pi_path / "pkg" / package_name / package_version / "pkg.toml"
+def load_pkg_config(pi_path: pathlib.Path, package: models_pkg.SrcPkgId, package_version: str):
+    config_path = (
+        pi_path / "pkg" / models_pkg.unqualified_pkg_name(package) / package_version / "pkg.toml"
+    )
     with config_path.open("rb") as f:
         config_dict = tomllib.load(f)
         return PkgConfig.model_validate(config_dict)

@@ -1,6 +1,7 @@
 import pytest
 
 from cimple import common, pkg, snapshot
+from cimple.models import pkg as pkg_models
 
 
 @pytest.mark.skipif(
@@ -16,7 +17,11 @@ def test_build_cygwin_pkg(
 
     # WHEN: Building a Cygwin package (make)
     output_path = pkg.ops.build_pkg(
-        "make", "4.4.1-2", pi_path=cimple_pi, cimple_snapshot=cimple_snapshot, parallel=8
+        pkg_models.src_pkg_id("make"),
+        "4.4.1-2",
+        pi_path=cimple_pi,
+        cimple_snapshot=cimple_snapshot,
+        parallel=8,
     )
 
     # THEN:

@@ -44,9 +44,12 @@ def add(
         )
 
         # Build package
-        package_path = pkg_index_path / "pkg" / package.name / package.version
         output_path = pkg.ops.build_pkg(
-            package_path, parallel=parallel, cimple_snapshot=new_snapshot
+            package.name,
+            package.version,
+            pi_path=pkg_index_path,
+            parallel=parallel,
+            cimple_snapshot=new_snapshot,
         )
 
         # Tar it up and add to snapshot
