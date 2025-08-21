@@ -1,3 +1,4 @@
+import collections.abc
 import copy
 import datetime
 import typing
@@ -186,6 +187,16 @@ class CimpleSnapshot:
         self.graph.add_node(pkg_id)
         for dep in depends:
             self.graph.add_edge(pkg_id, dep)
+
+    def binary_packages(self) -> collections.abc.Generator[pkg_models.BinPkgId]:
+        for pkg in self.pkg_map.values():
+            if snapshot_models.snapshot_pkg_is_bin(pkg.root):
+                yield pkg.root.id
+
+    def src_packages(self) -> collections.abc.Generator[pkg_models.SrcPkgId]:
+        for pkg in self.pkg_map.values():
+            if snapshot_models.snapshot_pkg_is_src(pkg.root):
+                yield pkg.root.id
 
 
 def load_snapshot(name: str) -> CimpleSnapshot:
