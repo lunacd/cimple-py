@@ -198,6 +198,29 @@ class CimpleSnapshot:
             if snapshot_models.snapshot_pkg_is_src(pkg.root):
                 yield pkg.root.id
 
+    def compare_pkgs_with(self, rhs: "CimpleSnapshot") -> None | pkg_models.PkgId:
+        """
+        Compare packages with another snapshot.
+        When they are identical, return None.
+        When they are different, return the package ID where things are different.
+        """
+        for pkg_id, pkg in self.pkg_map.items():
+            rhs_pkg = rhs.get_snapshot_pkg(pkg_id)
+            if rhs_pkg is None or rhs_pkg != pkg:
+                return pkg_id
+        return None
+
+    def __eq__(self, rhs: typing.Any) -> bool:
+        if not isinstance(rhs, CimpleSnapshot):
+            return False
+        return (
+            self.compare_pkgs_with(rhs) is None
+            and self.name == rhs.name
+            and self.ancestor == rhs.ancestor
+            and self.changes == rhs.changes
+            and self.version == rhs.version
+        )
+
 
 def load_snapshot(name: str) -> CimpleSnapshot:
     if name == "root":

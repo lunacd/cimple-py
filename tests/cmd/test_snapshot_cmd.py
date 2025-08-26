@@ -2,11 +2,21 @@ import pathlib
 
 from cimple.cmd import snapshot as snapshot_cmd
 from cimple.models import pkg as pkg_models
+from cimple.models import snapshot as snapshot_models
+from cimple.snapshot import core as snapshot_core
 from cimple.snapshot import ops as snapshot_ops
+
+dummy_snapshot_data = snapshot_models.Snapshot(
+    version=0,
+    name="dummy",
+    pkgs=[],
+    ancestor="root",
+    changes=snapshot_models.SnapshotChanges(add=[], remove=[]),
+)
 
 
 def load_snapshot_side_effect(*args):
-    return "dummy_snapshot"
+    return snapshot_core.CimpleSnapshot(dummy_snapshot_data)
 
 
 def test_snapshot_change(mocker):
@@ -36,3 +46,7 @@ def test_snapshot_change(mocker):
         pkg_index_path=pkg_index_path,
         parallel=2,
     )
+
+
+def test_snapshot_reproduce(mocker):
+    pass
