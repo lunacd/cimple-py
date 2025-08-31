@@ -16,7 +16,7 @@ class CimpleSnapshot:
     It provides methods to build the dependency graph and compute build dependencies.
     """
 
-    def __init__(self, snapshot_data: snapshot_models.Snapshot):
+    def __init__(self, snapshot_data: snapshot_models.SnapshotModel):
         """
         Constructs a directed graph representing the dependencies of packages.
 
@@ -98,7 +98,7 @@ class CimpleSnapshot:
         Dump the snapshot to a JSON file.
         """
         snapshot_name = datetime.datetime.now(tz=datetime.UTC).strftime("%Y%m%d-%H%M%S")
-        snapshot_data = snapshot_models.Snapshot(
+        snapshot_data = snapshot_models.SnapshotModel(
             version=self.version,
             name=snapshot_name,
             pkgs=list(self.pkg_map.values()),
@@ -224,7 +224,7 @@ class CimpleSnapshot:
 
 def load_snapshot(name: str) -> CimpleSnapshot:
     if name == "root":
-        snapshot_data = snapshot_models.Snapshot(
+        snapshot_data = snapshot_models.SnapshotModel(
             version=0,
             name="root",
             pkgs=[],
@@ -234,6 +234,6 @@ def load_snapshot(name: str) -> CimpleSnapshot:
     else:
         snapshot_path = common.constants.cimple_snapshot_dir / f"{name}.json"
         with snapshot_path.open("r") as f:
-            snapshot_data = snapshot_models.Snapshot.model_validate_json(f.read())
+            snapshot_data = snapshot_models.SnapshotModel.model_validate_json(f.read())
 
     return CimpleSnapshot(snapshot_data)

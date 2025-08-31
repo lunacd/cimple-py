@@ -52,7 +52,7 @@ def reproduce(
     pkg_index: typing.Annotated[str, typer.Option()],
     parallel: typing.Annotated[int, typer.Option(help="Number of parallel jobs")],
 ):
-    root_snapshot_map = snapshot_core.load_snapshot("root")
+    root_snapshot = snapshot_core.load_snapshot("root")
     snapshot_to_reproduce = snapshot_core.load_snapshot(reproduce_snapshot_name)
 
     pkgs_to_add = [
@@ -63,34 +63,26 @@ def reproduce(
     ]
 
     result_snapshot = snapshot_ops.add(
-        root_snapshot_map,
+        root_snapshot,
         pkgs_to_add,
         pkg_index_path=pathlib.Path(pkg_index),
         parallel=parallel,
     )
-    pkg_sha_values = {
-        package_id: package_data.root.sha256
-        for package_id, package_data in snapshot_to_reproduce.pkg_map.items()
-        if pkg_models.pkg_is_bin(package_id)
-        and snapshot_models.snapshot_pkg_is_bin(package_data.root)
-    }
 
-    has_error = False
+    different_pkg_id = result_snapshot.compare_pkgs_with(snapshot_to_reproduce)
 
-    for result_package in result_snapshot.pkg_map.values():
-        if not snapshot_models.snapshot_pkg_is_bin(result_package.root):
-            continue
-        expected_sha = pkg_sha_values[result_package.root.id]
-        if expected_sha != result_package.root.sha256:
-            has_error = True
-            common.logging.error(
-                "%s is not reproducible, expecting %s but got %s.",
-                result_package.root.name,
-                expected_sha,
-                result_package.root.sha256,
-            )
-
-    if not has_error:
+    if different_pkg_id is None:
         common.logging.info(
             "All packages in snapshot %s are reproducible!", reproduce_snapshot_name
         )
+        return
+
+    common.logging.info(
+        "%s in snapshot %s is not reproducible!", different_pkg_id, reproduce_snapshot_name
+    )
+    common.logging.info(
+        "Dumping package data for %s obtained from reproduction...", different_pkg_id
+    )
+    package_data = result_snapshot.get_snapshot_pkg(different_pkg_id)
+    assert package_data is not None
+    common.logging.info("%s", package_data.model_dump_json(indent=2))

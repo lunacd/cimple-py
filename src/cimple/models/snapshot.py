@@ -84,9 +84,9 @@ class SnapshotChanges(pydantic.BaseModel):
         return [pkg_models.unqualified_pkg_name(pkg_id) for pkg_id in remove]
 
 
-class Snapshot(pydantic.BaseModel):
+class SnapshotModel(pydantic.BaseModel):
     version: typing.Literal[0]
     name: str
     pkgs: list[SnapshotPkg]
-    ancestor: str
+    ancestor: str | None
     changes: SnapshotChanges
