@@ -6,14 +6,16 @@ import typing
 import patch_ng
 import requests
 
-from cimple import common, images, models, snapshot
-from cimple.models import pkg_config
-from cimple.pkg import cygwin
+from cimple import common, images, snapshot
+from cimple.models import pkg as pkg_models
+from cimple.models import pkg_config as pkg_config_models
+from cimple.models import snapshot as snapshot_models
+from cimple.pkg import cygwin as pkg_cygwin
 
 
 def install_package_and_deps(
     target_path: pathlib.Path,
-    pkg_id: models.pkg.BinPkgId,
+    pkg_id: pkg_models.BinPkgId,
     cimple_snapshot: snapshot.core.CimpleSnapshot,
 ):
     """
@@ -34,7 +36,7 @@ def install_package_and_deps(
 
 def install_pkg(
     target_path: pathlib.Path,
-    pkg_id: models.pkg.BinPkgId,
+    pkg_id: pkg_models.BinPkgId,
     cimple_snapshot: snapshot.core.CimpleSnapshot,
 ):
     common.logging.info("Installing %s", pkg_id)
@@ -44,7 +46,7 @@ def install_pkg(
         raise RuntimeError(
             f"Requested package {pkg_id} not found in snapshot {cimple_snapshot.name}."
         )
-    assert models.snapshot.snapshot_pkg_is_bin(pkg_data.root)
+    assert snapshot_models.snapshot_pkg_is_bin(pkg_data.root)
 
     if pkg_data is None:
         raise RuntimeError(
@@ -59,8 +61,9 @@ def install_pkg(
 
 
 def _build_custom_pkg(
-    pkg_config: pkg_config.PkgConfigCustom,
+    config: pkg_config_models.PkgConfigCustom,
     *,
+    pi_path: pathlib.Path,
     cimple_snapshot: snapshot.core.CimpleSnapshot,
     parallel: int,
 ) -> pathlib.Path:
@@ -77,9 +80,9 @@ def _build_custom_pkg(
 
     # Get source tarball
     common.logging.info("Fetching original source")
-    pkg_full_name = f"{config.pkg.name}-{config.pkg.version}"
+    pkg_full_name = f"{config.name}-{config.version}"
     pkg_tarball_name = (
-        f"{config.pkg.name}-{config.input.source_version}.tar.{config.input.tarball_compression}"
+        f"{config.name}-{config.input.source_version}.tar.{config.input.tarball_compression}"
     )
     orig_file = common.constants.cimple_orig_dir / pkg_tarball_name
     if not orig_file.exists():
@@ -91,7 +94,7 @@ def _build_custom_pkg(
 
     # Verify source tarball
     common.logging.info("Verifying original source")
-    orig_hash = common.hash.sha256_file(orig_file)
+    orig_hash = common.hash.hash_file(orig_file, sha_type="sha256")
     if orig_hash != config.input.sha256:
         raise RuntimeError(
             "Corrupted original source tarball, "
@@ -103,7 +106,7 @@ def _build_custom_pkg(
     deps_dir = common.constants.cimple_deps_dir / pkg_full_name
     common.util.clear_path(deps_dir)
     for dep in config.pkg.build_depends:
-        install_package_and_deps(deps_dir, dep, snapshot_map)
+        install_package_and_deps(deps_dir, dep, cimple_snapshot)
 
     # Prepare build and output directories
     build_dir = common.constants.cimple_pkg_build_dir / pkg_full_name
@@ -123,6 +126,7 @@ def _build_custom_pkg(
             common.tarfile.extract_directory_from_tar(tar, config.input.tarball_root_dir, build_dir)
 
     common.logging.info("Patching source")
+    pkg_path = pi_path / "pkg" / config.name / config.version
     patch_dir = pkg_path / "patches"
     for patch_name in config.input.patches:
         common.logging.info("Applying %s", patch_name)
@@ -197,12 +201,12 @@ def _build_custom_pkg(
 
 
 def _build_cygwin_pkg(
-    pkg_config: pkg_config.PkgConfigCygwin,
+    pkg_config: pkg_config_models.PkgConfigCygwin,
     *,
     cimple_snapshot: snapshot.core.CimpleSnapshot,
 ) -> pathlib.Path:
     # Download and parse Cygwin release file
-    cygwin_release = cygwin.CygwinRelease()
+    cygwin_release = pkg_cygwin.CygwinRelease()
     cygwin_release.parse_release_from_repo()
     cygwin_install_path = cygwin_release.packages[
         f"{pkg_config.name}-{pkg_config.version}"
@@ -214,7 +218,7 @@ def _build_cygwin_pkg(
 
     # Download Cygwin tarball
     with tempfile.TemporaryDirectory() as temp_dir:
-        downloaded_install_file = cygwin.download_cygwin_file(
+        downloaded_install_file = pkg_cygwin.download_cygwin_file(
             cygwin_install_path, pathlib.Path(temp_dir)
         )
 
@@ -237,17 +241,20 @@ def build_pkg(
     cimple_snapshot: snapshot.core.CimpleSnapshot,
     parallel: int,
 ) -> pathlib.Path:
-    config = pkg_config.load_pkg_config(pi_path, package_name, package_version)
+    config = pkg_config_models.load_pkg_config(
+        pi_path, pkg_models.src_pkg_id(package_name), package_version
+    )
 
     match config.root.pkg_type:
         case "custom":
             return _build_custom_pkg(
-                typing.cast("pkg_config.PkgConfigCustom", config.root),
+                typing.cast("pkg_config_models.PkgConfigCustom", config.root),
                 cimple_snapshot=cimple_snapshot,
+                pi_path=pi_path,
                 parallel=parallel,
             )
         case "cygwin":
             return _build_cygwin_pkg(
-                typing.cast("pkg_config.PkgConfigCygwin", config.root),
+                typing.cast("pkg_config_models.PkgConfigCygwin", config.root),
                 cimple_snapshot=cimple_snapshot,
             )
