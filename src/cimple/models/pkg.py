@@ -24,3 +24,7 @@ def pkg_is_src(pkg_str: PkgId) -> typing.TypeGuard[SrcPkgId]:
 
 def pkg_is_bin(pkg_str: PkgId) -> typing.TypeGuard[BinPkgId]:
     return pkg_str.startswith("bin:")
+
+
+def is_pkg_id(obj: typing.Any) -> typing.TypeGuard[PkgId]:
+    return isinstance(obj, str) and (obj.startswith("src:") or obj.startswith("bin:"))

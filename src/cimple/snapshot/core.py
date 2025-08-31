@@ -72,6 +72,10 @@ class CimpleSnapshot:
         self.changes = snapshot_data.changes
 
     @staticmethod
+    def _assert_node_type(node_set: set[typing.Any]) -> typing.TypeGuard[set[pkg_models.PkgId]]:
+        return all(pkg_models.is_pkg_id(node) for node in node_set)
+
+    @staticmethod
     def create_from(origin_snapshot: "CimpleSnapshot") -> "CimpleSnapshot":
         new_snapshot = copy.deepcopy(origin_snapshot)
         new_snapshot.changes = []
@@ -83,14 +87,16 @@ class CimpleSnapshot:
         """
         Get all binary packages that are required during the build a source package.
         """
-        descendents: list[pkg_models.PkgId] = nx.descendants(self.graph, src_pkg)
+        descendents = nx.descendants(self.graph, src_pkg)
+        self._assert_node_type(descendents)
         return list(filter(lambda item: pkg_models.pkg_is_bin(item), descendents))
 
     def runtime_depends_of(self, bin_pkg: pkg_models.BinPkgId) -> list[pkg_models.BinPkgId]:
         """
         Get all binary packages that are required at runtime by a binary package.
         """
-        descendents: list[pkg_models.PkgId] = nx.descendants(self.graph, bin_pkg)
+        descendents = nx.descendants(self.graph, bin_pkg)
+        self._assert_node_type(descendents)
         return list(filter(lambda item: pkg_models.pkg_is_bin(item), descendents))
 
     def dump_snapshot(self):
