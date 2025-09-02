@@ -5,6 +5,7 @@ import typer
 
 import cimple.images as images
 from cimple import cmd
+from cimple.models import pkg as pkg_models
 from cimple.pkg import ops as pkg_ops
 from cimple.snapshot import core as snapshot_core
 
@@ -24,7 +25,7 @@ def build_pkg(
 ):
     snapshot_map = snapshot_core.load_snapshot(snapshot_name)
     pkg_ops.build_pkg(
-        pkg_name,
+        pkg_models.src_pkg_id(pkg_name),
         pkg_version,
         pi_path=pathlib.Path(pkg_index_path),
         parallel=parallel,

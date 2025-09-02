@@ -234,16 +234,14 @@ def _build_cygwin_pkg(
 
 
 def build_pkg(
-    package_name: str,
+    package_name: pkg_models.SrcPkgId,
     package_version: str,
     *,
     pi_path: pathlib.Path,
     cimple_snapshot: snapshot.core.CimpleSnapshot,
     parallel: int,
 ) -> pathlib.Path:
-    config = pkg_config_models.load_pkg_config(
-        pi_path, pkg_models.src_pkg_id(package_name), package_version
-    )
+    config = pkg_config_models.load_pkg_config(pi_path, package_name, package_version)
 
     match config.root.pkg_type:
         case "custom":
