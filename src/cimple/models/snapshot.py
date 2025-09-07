@@ -5,18 +5,14 @@ import pydantic
 from cimple.models import pkg as pkg_models
 
 
-def _bin_pkg_id_list_validator(input: list[str]) -> list[pkg_models.BinPkgId]:
-    return [pkg_models.bin_pkg_id(name) for name in input]
-
-
 class SnapshotSrcPkg(pydantic.BaseModel):
     name: str
     version: str
     build_depends: typing.Annotated[
-        list[pkg_models.BinPkgId], pydantic.AfterValidator(_bin_pkg_id_list_validator)
+        list[pkg_models.BinPkgId], pydantic.AfterValidator(pkg_models.bin_pkg_id_list_validator)
     ]
     binary_packages: typing.Annotated[
-        list[pkg_models.BinPkgId], pydantic.AfterValidator(_bin_pkg_id_list_validator)
+        list[pkg_models.BinPkgId], pydantic.AfterValidator(pkg_models.bin_pkg_id_list_validator)
     ]
     pkg_type: typing.Literal["src"]
 
@@ -38,7 +34,7 @@ class SnapshotBinPkg(pydantic.BaseModel):
     sha256: str
     compression_method: typing.Literal["xz"]
     depends: typing.Annotated[
-        list[pkg_models.BinPkgId], pydantic.AfterValidator(_bin_pkg_id_list_validator)
+        list[pkg_models.BinPkgId], pydantic.AfterValidator(pkg_models.bin_pkg_id_list_validator)
     ]
     pkg_type: typing.Literal["bin"]
 

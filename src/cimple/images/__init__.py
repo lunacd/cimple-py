@@ -20,6 +20,9 @@ def get_image(image_name: str):
 
     image_file_name = f"{image_name}.tar.gz"
     target_path = common.constants.cimple_image_dir / image_file_name
+    if target_path.is_file():
+        common.logging.info("Using existing image %s", image_file_name)
+        return
     url = f"https://cimple-pi.lunacd.com/image/{image_file_name}"
     r = requests.get(url, allow_redirects=True)
     r.raise_for_status()

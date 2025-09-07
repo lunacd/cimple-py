@@ -79,6 +79,22 @@ def basic_cimple_store_fixture(fs: pyfakefs.fake_filesystem.FakeFilesystem) -> N
                 target_path=common.constants.cimple_pkg_dir / pkg_tarball_name,
             )
 
+    # Add orig tarballs
+    with importlib.resources.path("tests", "data/orig") as orig_path:
+        fs.add_real_directory(
+            orig_path,
+            target_path=common.constants.cimple_orig_dir,
+            read_only=True,
+        )
+
+    # Add image tarballs
+    with importlib.resources.path("tests", "data/image") as image_path:
+        fs.add_real_directory(
+            image_path,
+            target_path=common.constants.cimple_image_dir,
+            read_only=True,
+        )
+
 
 @pytest.fixture(name="cimple_pi")
 def cimple_pi_fixture(fs: pyfakefs.fake_filesystem.FakeFilesystem) -> pathlib.Path:

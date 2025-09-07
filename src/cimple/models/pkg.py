@@ -28,3 +28,7 @@ def pkg_is_bin(pkg_str: PkgId) -> typing.TypeGuard[BinPkgId]:
 
 def is_pkg_id(obj: typing.Any) -> typing.TypeGuard[PkgId]:
     return isinstance(obj, str) and (obj.startswith("src:") or obj.startswith("bin:"))
+
+
+def bin_pkg_id_list_validator(input: list[str]) -> list[BinPkgId]:
+    return [bin_pkg_id(name) for name in input]

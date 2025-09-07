@@ -17,7 +17,7 @@ class PkgConfigPkgSection(pydantic.BaseModel):
 
     depends: list[str]
     build_depends: typing.Annotated[
-        list[models_pkg.BinPkgId], pydantic.AfterValidator(models_pkg.bin_pkg_id)
+        list[models_pkg.BinPkgId], pydantic.AfterValidator(models_pkg.bin_pkg_id_list_validator)
     ]
 
 
