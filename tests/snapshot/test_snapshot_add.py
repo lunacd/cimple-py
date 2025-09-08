@@ -1,4 +1,4 @@
-from cimple import snapshot
+from cimple import common, snapshot
 from cimple.models import pkg as pkg_models
 
 
@@ -24,3 +24,7 @@ def test_snapshot_add(cimple_pi, basic_cimple_store, cygwin_release_content_side
     assert pkg_models.bin_pkg_id("make") in new_snapshot.pkg_map
 
     # TODO: make sure package tarball exists and has the right hash
+    assert (
+        common.constants.cimple_pkg_dir
+        / "make-4.4.1-2-a279dab57d398d93950e9a7cc2855ecdaa05e93519920be87abbd59cb70dee3f.tar.xz"
+    ).exists()

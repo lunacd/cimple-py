@@ -57,3 +57,4 @@ def test_build_cygwin_pkg(
     # THEN:
     assert output_path.exists(), f"Output path does not exist: {output_path}"
     assert (output_path / "usr" / "bin" / "make.exe").exists(), "make.exe not found in output"
+    assert output_path.name == "make-4.4.1-2"

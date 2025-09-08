@@ -62,7 +62,9 @@ def add(
 
             # Move tarball to pkg store
             tar_hash = common.hash.hash_file(tar_path, "sha256")
-            new_file_name = f"{package.name}-{package.version}-{tar_hash}.tar.xz"
+            new_file_name = f"{(pkg_models.unqualified_pkg_name(package.name))}-{package.version}-{
+                tar_hash
+            }.tar.xz"
             new_file_path = common.constants.cimple_pkg_dir / new_file_name
             if new_file_path.exists():
                 common.logging.info("Reusing %s", new_file_name)
