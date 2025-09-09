@@ -18,9 +18,10 @@ def test_build_pkg_custom_with_cimple_pi(cimple_pi, basic_cimple_store, mocker):
     run_command_mock = mocker.patch(
         "cimple.pkg.ops.common.cmd.run_command", return_value=return_process
     )
+    uut = pkg_ops.PkgOps()
 
     # WHEN: building a custom package
-    result = pkg_ops.build_pkg(
+    result = uut.build_pkg(
         package_id,
         package_version,
         pi_path=cimple_pi,
@@ -44,9 +45,10 @@ def test_build_cygwin_pkg(
     # GIVEN: A basic Cimple store with root snapshot
     mocker.patch("cimple.pkg.cygwin.requests.get", side_effect=cygwin_release_content_side_effect)
     cimple_snapshot = snapshot_core.load_snapshot("root")
+    uut = pkg_ops.PkgOps()
 
     # WHEN: Building a Cygwin package (make)
-    output_path = pkg_ops.build_pkg(
+    output_path = uut.build_pkg(
         pkg_models.src_pkg_id("make"),
         "4.4.1-2",
         pi_path=cimple_pi,

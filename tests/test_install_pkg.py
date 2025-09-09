@@ -1,16 +1,18 @@
 import pathlib
 
-from cimple import pkg, snapshot
+from cimple import snapshot
 from cimple.models import pkg as pkg_models
+from cimple.pkg import ops as pkg_ops
 
 
 def test_install_single_pkg(basic_cimple_store: None):
     # Given: a basic snapshot with binary packages
     cimple_snapshot = snapshot.core.load_snapshot("test-snapshot")
     pkg1 = pkg_models.bin_pkg_id("pkg1-bin")
+    uut = pkg_ops.PkgOps()
 
     # When: installing a single package
-    pkg.ops.install_pkg(pathlib.Path("/target/"), pkg1, cimple_snapshot)
+    uut.install_pkg(pathlib.Path("/target/"), pkg1, cimple_snapshot)
 
     # Then: the installation result is successful and includes the expected binary packages
     expected_file = pathlib.Path("/target/pkg-1.txt")
@@ -22,9 +24,10 @@ def test_install_pkg_with_dependencies(basic_cimple_store: None):
     # Given: a basic snapshot with binary packages
     cimple_snapshot = snapshot.core.load_snapshot("test-snapshot")
     pkg2 = pkg_models.bin_pkg_id("pkg2-bin")
+    uut = pkg_ops.PkgOps()
 
     # When: installing a package with dependencies
-    pkg.ops.install_package_and_deps(pathlib.Path("/target/"), pkg2, cimple_snapshot)
+    uut.install_package_and_deps(pathlib.Path("/target/"), pkg2, cimple_snapshot)
 
     # Then: the installation result is successful and includes the expected binary packages
     #       pkg2-bin depends on pkg3-bin, so both should be installed

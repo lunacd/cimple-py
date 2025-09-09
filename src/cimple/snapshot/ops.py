@@ -5,9 +5,10 @@ import tempfile
 
 import pydantic
 
-from cimple import common, pkg
+from cimple import common
 from cimple.models import pkg as pkg_models
 from cimple.models import pkg_config
+from cimple.pkg import ops as pkg_ops
 from cimple.snapshot import core
 
 
@@ -32,6 +33,8 @@ def add(
     # For now, assume it's only the added packages that needs building
     packages_to_build = packages
 
+    pkg_processor = pkg_ops.PkgOps()
+
     # Build package
     for package in packages_to_build:
         config = pkg_config.load_pkg_config(pkg_index_path, package.name, package.version)
@@ -44,7 +47,7 @@ def add(
         )
 
         # Build package
-        output_path = pkg.ops.build_pkg(
+        output_path = pkg_processor.build_pkg(
             package.name,
             package.version,
             pi_path=pkg_index_path,
