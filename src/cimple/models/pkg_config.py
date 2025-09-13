@@ -15,7 +15,6 @@ class PkgConfigPkgSection(pydantic.BaseModel):
     # TODO: get a enum of all possible platforms
     supported_platforms: list[str]
 
-    depends: list[str]
     build_depends: typing.Annotated[
         list[models_pkg.BinPkgId], pydantic.AfterValidator(models_pkg.bin_pkg_id_list_validator)
     ]
@@ -54,6 +53,17 @@ class PkgConfigRulesSection(pydantic.BaseModel):
     default: list[str | PkgConfigRule]
 
 
+class PkgConfigBinarySection(pydantic.BaseModel):
+    """
+    A binary package produced by a cimple package
+    """
+
+    depends: typing.Annotated[
+        list[models_pkg.BinPkgId] | None,
+        pydantic.AfterValidator(models_pkg.bin_pkg_id_list_validator),
+    ] = []
+
+
 class PkgConfigCustom(pydantic.BaseModel):
     """
     Config for a cimple PI package
@@ -68,6 +78,7 @@ class PkgConfigCustom(pydantic.BaseModel):
     pkg: PkgConfigPkgSection
     input: PkgConfigInputSection
     rules: PkgConfigRulesSection
+    binaries: dict[str, PkgConfigBinarySection]
 
     @property
     def id(self) -> models_pkg.SrcPkgId:

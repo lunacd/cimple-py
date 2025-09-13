@@ -173,7 +173,7 @@ class CimpleSnapshot:
 
         # Add package to snapshot map
         new_snapshot_pkg = snapshot_models.SnapshotPkg(
-            root=snapshot_models.SnapshotBinPkg(
+            root=snapshot_models.SnapshotBinPkg.model_construct(
                 name=pkg_id,
                 sha256=pkg_sha256,
                 compression_method="xz",

@@ -31,3 +31,6 @@ def test_snapshot_add(cimple_pi, basic_cimple_store, cygwin_release_content_side
     assert snapshot_models.snapshot_pkg_is_bin(make_bin_pkg)
     sha256 = make_bin_pkg.sha256
     assert (common.constants.cimple_pkg_dir / f"make-4.4.1-2-{sha256}.tar.xz").exists()
+
+    # THEN: the depends are correct
+    assert make_bin_pkg.depends == ["bin:cygwin", "bin:libguile3.0_1", "bin:libintl8"]

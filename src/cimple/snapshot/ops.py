@@ -7,9 +7,8 @@ import pydantic
 
 from cimple import common
 from cimple.models import pkg as pkg_models
-from cimple.models import pkg_config
 from cimple.pkg import ops as pkg_ops
-from cimple.snapshot import core
+from cimple.snapshot import core as snapshot_core
 
 
 class VersionedSourcePackage(pydantic.BaseModel):
@@ -18,11 +17,11 @@ class VersionedSourcePackage(pydantic.BaseModel):
 
 
 def add(
-    origin_snapshot: core.CimpleSnapshot,
+    origin_snapshot: snapshot_core.CimpleSnapshot,
     packages: list[VersionedSourcePackage],
     pkg_index_path: pathlib.Path,
     parallel: int,
-) -> core.CimpleSnapshot:
+) -> snapshot_core.CimpleSnapshot:
     # Ensure needed paths exist
     common.util.ensure_path(common.constants.cimple_snapshot_dir)
     common.util.ensure_path(common.constants.cimple_pkg_dir)
@@ -37,13 +36,17 @@ def add(
 
     # Build package
     for package in packages_to_build:
-        config = pkg_config.load_pkg_config(pkg_index_path, package.name, package.version)
+        # Resolve dependencies
+        # TODO: make sure dependencies are resolvable before proceeding with build
+        dependency_data = pkg_processor.resolve_dependencies(
+            package.name, package.version, pi_path=pkg_index_path
+        )
 
         # Add package to snapshot
         new_snapshot.add_src_pkg(
             pkg_id=package.name,
             pkg_version=package.version,
-            build_depends=config.root.build_depends,
+            build_depends=dependency_data.build_depends,
         )
 
         # Build package
@@ -75,11 +78,12 @@ def add(
                 tar_path.rename(new_file_path)
 
         # TODO: this needs to be repeated for each binary package
+        bin_pkg_id = pkg_models.bin_pkg_id(pkg_models.unqualified_pkg_name(package.name))
         new_snapshot.add_bin_pkg(
-            pkg_id=pkg_models.bin_pkg_id(pkg_models.unqualified_pkg_name(package.name)),
+            pkg_id=bin_pkg_id,
             src_pkg=package.name,
             pkg_sha256=tar_hash,
-            depends=[],
+            depends=dependency_data.depends[bin_pkg_id],
         )
 
     return new_snapshot

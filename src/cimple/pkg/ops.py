@@ -1,3 +1,4 @@
+import dataclasses
 import pathlib
 import tarfile
 import tempfile
@@ -13,7 +14,8 @@ from cimple.models import snapshot as snapshot_models
 from cimple.pkg import cygwin as pkg_cygwin
 
 
-class PackageDependencies(typing.TypedDict):
+@dataclasses.dataclass
+class PackageDependencies:
     build_depends: list[pkg_models.BinPkgId]
     depends: dict[pkg_models.BinPkgId, list[pkg_models.BinPkgId]]
 
@@ -276,3 +278,25 @@ class PkgOps:
                     cimple_snapshot=cimple_snapshot,
                 )
 
+    def resolve_dependencies(
+        self, package_id: pkg_models.SrcPkgId, package_version: str, *, pi_path: pathlib.Path
+    ) -> PackageDependencies:
+        config = pkg_config_models.load_pkg_config(pi_path, package_id, package_version)
+        if config.root.pkg_type == "custom":
+            # TODO: figure out multiple binary package for custom package
+            depends: dict[pkg_models.BinPkgId, list[pkg_models.BinPkgId]] = {}
+        elif config.root.pkg_type == "cygwin":
+            self.initialize_cygwin()
+            assert self.cygwin_release is not None
+            pkg_full_name = f"{config.root.name}-{config.root.version}"
+            if pkg_full_name not in self.cygwin_release.packages:
+                raise RuntimeError(f"Package {pkg_full_name} not found in Cygwin release.")
+            pkg_info = self.cygwin_release.packages[pkg_full_name]
+            depends = {
+                pkg_models.bin_pkg_id(pkg_models.unqualified_pkg_name(package_id)): [
+                    pkg_models.bin_pkg_id(dep) for dep in pkg_info.depends
+                ]
+            }
+        else:
+            raise RuntimeError(f"Unknown package type {config.root.pkg_type}")
+        return PackageDependencies(build_depends=config.root.build_depends, depends=depends)
