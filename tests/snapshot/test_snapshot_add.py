@@ -1,3 +1,5 @@
+import pytest
+
 from cimple import common
 from cimple.models import pkg as pkg_models
 from cimple.models import snapshot as snapshot_models
@@ -5,10 +7,49 @@ from cimple.snapshot import core as snapshot_core
 from cimple.snapshot import ops as snapshot_ops
 
 
-def test_snapshot_add(cimple_pi, basic_cimple_store, cygwin_release_content_side_effect, mocker):
+def test_snapshot_add_unresolvable_dep(
+    cimple_pi, basic_cimple_store, cygwin_release_content_side_effect, mocker
+):
     # GIVEN: a root snapshot
     mocker.patch("cimple.pkg.cygwin.requests.get", side_effect=cygwin_release_content_side_effect)
     root_snapshot = snapshot_core.load_snapshot("root")
+
+    # WHEN: adding a package to the snapshot
+    # THEN: an exception is raised because cygwin is not in the snapshot
+    with pytest.raises(
+        RuntimeError,
+        match="Binary dependency bin:cygwin for package src:make not found in snapshot",
+    ):
+        snapshot_ops.add(
+            root_snapshot,
+            [
+                snapshot_ops.VersionedSourcePackage(
+                    name=pkg_models.src_pkg_id("make"), version="4.4.1-2"
+                )
+            ],
+            cimple_pi,
+            parallel=1,
+        )
+
+
+def test_snapshot_add_simple(
+    cimple_pi, basic_cimple_store, cygwin_release_content_side_effect, mocker
+):
+    # GIVEN: a snapshot with make's binary dependencies
+    mocker.patch("cimple.pkg.cygwin.requests.get", side_effect=cygwin_release_content_side_effect)
+    root_snapshot = snapshot_core.load_snapshot("root")
+    root_snapshot.add_src_pkg(pkg_models.src_pkg_id("cygwin"), "0", [])
+    root_snapshot.add_bin_pkg(
+        pkg_models.bin_pkg_id("cygwin"), pkg_models.src_pkg_id("cygwin"), "0", []
+    )
+    root_snapshot.add_src_pkg(pkg_models.src_pkg_id("libguile3.0_1"), "0", [])
+    root_snapshot.add_bin_pkg(
+        pkg_models.bin_pkg_id("libguile3.0_1"), pkg_models.src_pkg_id("libguile3.0_1"), "0", []
+    )
+    root_snapshot.add_src_pkg(pkg_models.src_pkg_id("libintl8"), "0", [])
+    root_snapshot.add_bin_pkg(
+        pkg_models.bin_pkg_id("libintl8"), pkg_models.src_pkg_id("libintl8"), "0", []
+    )
 
     # WHEN: adding a package to the snapshot
     new_snapshot = snapshot_ops.add(

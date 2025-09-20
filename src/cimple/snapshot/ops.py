@@ -5,7 +5,9 @@ import tempfile
 
 import pydantic
 
-from cimple import common
+from cimple.common import constants, logging, util
+from cimple.common import hash as cimple_hash
+from cimple.common import tarfile as cimple_tarfile
 from cimple.models import pkg as pkg_models
 from cimple.pkg import ops as pkg_ops
 from cimple.snapshot import core as snapshot_core
@@ -23,8 +25,8 @@ def add(
     parallel: int,
 ) -> snapshot_core.CimpleSnapshot:
     # Ensure needed paths exist
-    common.util.ensure_path(common.constants.cimple_snapshot_dir)
-    common.util.ensure_path(common.constants.cimple_pkg_dir)
+    util.ensure_path(constants.cimple_snapshot_dir)
+    util.ensure_path(constants.cimple_pkg_dir)
 
     new_snapshot = copy.deepcopy(origin_snapshot)
 
@@ -34,19 +36,42 @@ def add(
 
     pkg_processor = pkg_ops.PkgOps()
 
-    # Build package
+    # Resolve dependencies
+    logging.info("Resolving dependencies")
+    package_dependencies: dict[pkg_models.SrcPkgId, pkg_ops.PackageDependencies] = {}
+    binaries_will_built: set[pkg_models.BinPkgId] = set()
     for package in packages_to_build:
-        # Resolve dependencies
-        # TODO: make sure dependencies are resolvable before proceeding with build
         dependency_data = pkg_processor.resolve_dependencies(
             package.name, package.version, pi_path=pkg_index_path
         )
+        # Check build and runtime dependencies are available in the snapshot
+        for dep in dependency_data.build_depends:
+            if dep not in new_snapshot.pkg_map:
+                raise RuntimeError(
+                    f"Build dependency {dep} for package {package.name} not found in snapshot"
+                )
+        for bin_pkg in dependency_data.depends:
+            binaries_will_built.add(bin_pkg)
+        for bin_dep_list in dependency_data.depends.values():
+            for dep in bin_dep_list:
+                # Binary dependencies can be either in the snapshot or produced by the package being
+                # built
+                if dep not in new_snapshot.pkg_map and dep not in binaries_will_built:
+                    raise RuntimeError(
+                        f"Binary dependency {dep} for package {package.name} not found in snapshot"
+                    )
+
+        package_dependencies[package.name] = dependency_data
+
+    # Build package
+    for package in packages_to_build:
+        logging.info("Building %s-%s", package.name, package.version)
 
         # Add package to snapshot
         new_snapshot.add_src_pkg(
             pkg_id=package.name,
             pkg_version=package.version,
-            build_depends=dependency_data.build_depends,
+            build_depends=package_dependencies[package.name].build_depends,
         )
 
         # Build package
@@ -64,16 +89,16 @@ def add(
             tar_path = pathlib.Path(tmp_dir) / "pkg.tar.xz"
             with tarfile.open(tar_path, "w:xz") as out_tar:
                 # TODO: is TarFile.add deterministic?
-                out_tar.add(output_path, ".", filter=common.tarfile.reproducible_add_filter)
+                out_tar.add(output_path, ".", filter=cimple_tarfile.reproducible_add_filter)
 
             # Move tarball to pkg store
-            tar_hash = common.hash.hash_file(tar_path, "sha256")
+            tar_hash = cimple_hash.hash_file(tar_path, "sha256")
             new_file_name = f"{(pkg_models.unqualified_pkg_name(package.name))}-{package.version}-{
                 tar_hash
             }.tar.xz"
-            new_file_path = common.constants.cimple_pkg_dir / new_file_name
+            new_file_path = constants.cimple_pkg_dir / new_file_name
             if new_file_path.exists():
-                common.logging.info("Reusing %s", new_file_name)
+                logging.info("Reusing %s", new_file_name)
             else:
                 tar_path.rename(new_file_path)
 
@@ -83,7 +108,7 @@ def add(
             pkg_id=bin_pkg_id,
             src_pkg=package.name,
             pkg_sha256=tar_hash,
-            depends=dependency_data.depends[bin_pkg_id],
+            depends=package_dependencies[package.name].depends[bin_pkg_id],
         )
 
     return new_snapshot
