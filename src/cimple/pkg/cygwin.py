@@ -83,10 +83,20 @@ class CygwinRelease:
         in_field = False
         field_key = None
         field_value = None
+        is_test_section = False
+
+        def reset_package_fields():
+            nonlocal current_version, install_path, dependencies
+            current_version = None
+            install_path = None
+            dependencies = None
 
         def record_package(current_package, current_version, install_path, dependencies):
             # Only record if all required fields are present
             if not current_package or not current_version or not install_path:
+                return
+            # Skip test versions
+            if is_test_section:
                 return
             key = f"{current_package}-{current_version}"
             self.packages[key] = self.CygwinPackage(
@@ -160,17 +170,21 @@ class CygwinRelease:
             if len(line.strip()) == 0:
                 record_package(current_package, current_version, install_path, dependencies)
                 current_package = None
-                current_version = None
-                install_path = None
-                dependencies = None
+                reset_package_fields()
+                is_test_section = False
                 continue
 
             # End of a version section
             if line.strip() == "[prev]":
                 record_package(current_package, current_version, install_path, dependencies)
-                current_version = None
-                install_path = None
-                dependencies = None
+                reset_package_fields()
+                is_test_section = False
+                continue
+
+            if line.strip() == "[test]":
+                record_package(current_package, current_version, install_path, dependencies)
+                reset_package_fields()
+                is_test_section = True
                 continue
 
         # Record last package if file does not end with newline

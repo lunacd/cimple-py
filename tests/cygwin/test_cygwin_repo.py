@@ -236,7 +236,7 @@ def test_parse_release_simple(
     assert package.depends == expected_depends
 
 
-def test_parse_cygwin_release_for_package(
+def test_parse_cygwin_release_full(
     cygwin_release_content_side_effect,
     mocker,
 ):
@@ -269,6 +269,13 @@ def test_parse_cygwin_release_for_package(
             "x86_64/release/lcms2/liblcms2_2/liblcms2_2-2.14-1.tar.xz",
             ["cygwin"],
         ),
+        # coreutils, this is special because it uses [test] sections
+        (
+            "coreutils",
+            "9.0-1",
+            "x86_64/release/coreutils/coreutils-9.0-1.tar.xz",
+            ["cygwin", "libattr1", "libgcc1", "libgmp10", "libiconv2", "libintl8", "tzcode"],
+        ),
     ]
     for (
         expected_package_name,
@@ -282,3 +289,16 @@ def test_parse_cygwin_release_for_package(
         assert cygwin_release.packages[package_key].version == expected_version
         assert cygwin_release.packages[package_key].install_path == expected_install_path
         assert cygwin_release.packages[package_key].depends == expected_dependencies
+
+
+def test_parse_cygwin_release_test_versions_are_skipped(cygwin_release_content_side_effect, mocker):
+    mocker.patch("cimple.pkg.cygwin.requests.get", side_effect=cygwin_release_content_side_effect)
+
+    # WHEN: Parsing the Cygwin release for the package
+    cygwin_release = pkg.cygwin.CygwinRelease()
+    assert cygwin_release.initialized is False, "CygwinRelease should not be initialized yet"
+    cygwin_release.parse_release_from_repo()
+
+    # THEN: Test versions should be skipped
+    # coreutils-9.5-1 is a test version and should be skipped
+    assert "coreutils-9.5-1" not in cygwin_release.packages
