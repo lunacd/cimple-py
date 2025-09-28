@@ -1,0 +1,5 @@
+schema_version = 0
+pkg_type = "cygwin"
+
+name = "cygwin"
+version = "3.6.2-1"

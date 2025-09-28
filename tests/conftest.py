@@ -6,6 +6,8 @@ import pyfakefs.fake_filesystem
 import pytest
 
 from cimple import common
+from cimple.models import pkg as pkg_models
+from cimple.snapshot import core as snapshot_core
 
 
 @pytest.fixture(name="basic_cimple_store")
@@ -151,3 +153,21 @@ def cygwin_release_content_side_effect_fixture(fs: pyfakefs.fake_filesystem.Fake
         return Mock404Response()
 
     return mock_cygwin_release_content
+
+
+class Helpers:
+    @staticmethod
+    def mock_cimple_snapshot(
+        bin_packages: list[pkg_models.BinPkgId],
+    ) -> snapshot_core.CimpleSnapshot:
+        snapshot = snapshot_core.load_snapshot("root")
+        for bin_pkg in bin_packages:
+            src_pkg_id = pkg_models.src_pkg_id(pkg_models.unqualified_pkg_name(bin_pkg))
+            snapshot.add_src_pkg(src_pkg_id, "0", [])
+            snapshot.add_bin_pkg(bin_pkg, src_pkg_id, "0", [])
+        return snapshot
+
+
+@pytest.fixture(name="helpers")
+def helpers_fixture() -> Helpers:
+    return Helpers()

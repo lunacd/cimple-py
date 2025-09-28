@@ -44,15 +44,17 @@ def add(
         dependency_data = pkg_processor.resolve_dependencies(
             package.name, package.version, pi_path=pkg_index_path
         )
+        package_dependencies[package.name] = dependency_data
+        for bin_pkg in dependency_data.depends:
+            binaries_will_built.add(bin_pkg)
+    for package in packages_to_build:
         # Check build and runtime dependencies are available in the snapshot
-        for dep in dependency_data.build_depends:
+        for dep in package_dependencies[package.name].build_depends:
             if dep not in new_snapshot.pkg_map:
                 raise RuntimeError(
                     f"Build dependency {dep} for package {package.name} not found in snapshot"
                 )
-        for bin_pkg in dependency_data.depends:
-            binaries_will_built.add(bin_pkg)
-        for bin_dep_list in dependency_data.depends.values():
+        for bin_dep_list in package_dependencies[package.name].depends.values():
             for dep in bin_dep_list:
                 # Binary dependencies can be either in the snapshot or produced by the package being
                 # built
@@ -60,8 +62,6 @@ def add(
                     raise RuntimeError(
                         f"Binary dependency {dep} for package {package.name} not found in snapshot"
                     )
-
-        package_dependencies[package.name] = dependency_data
 
     # Build package
     for package in packages_to_build:
@@ -100,7 +100,7 @@ def add(
             if new_file_path.exists():
                 logging.info("Reusing %s", new_file_name)
             else:
-                tar_path.rename(new_file_path)
+                _ = tar_path.rename(new_file_path)
 
         # TODO: this needs to be repeated for each binary package
         bin_pkg_id = pkg_models.bin_pkg_id(pkg_models.unqualified_pkg_name(package.name))
