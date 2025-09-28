@@ -276,6 +276,14 @@ def test_parse_cygwin_release_full(
             "x86_64/release/coreutils/coreutils-9.0-1.tar.xz",
             ["cygwin", "libattr1", "libgcc1", "libgmp10", "libiconv2", "libintl8", "tzcode"],
         ),
+        # cygwin itself
+        # This package uses [test] section, dependency version requirements, and _windows
+        (
+            "cygwin",
+            "3.6.4-1",
+            "x86_64/release/cygwin/cygwin-3.6.4-1-x86_64.tar.xz",
+            ["bash", "libgcc1", "libintl8", "libzstd1", "zlib0"],
+        ),
     ]
     for (
         expected_package_name,

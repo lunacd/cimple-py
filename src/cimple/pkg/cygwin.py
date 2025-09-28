@@ -85,6 +85,15 @@ class CygwinRelease:
         field_value = None
         is_test_section = False
 
+        def parse_dependencies(dep_str: str) -> list[str]:
+            # Split by comma
+            dependencies = [dep.strip() for dep in dep_str.split(",")]
+            # Remove version constraints
+            # It's up to package maintainer to ensure version compatibility
+            dependencies = [dep.split(" ")[0] for dep in dependencies]
+            # Ignore _windows, that's not a real thing
+            return [dep for dep in dependencies if dep != "_windows"]
+
         def reset_package_fields():
             nonlocal current_version, install_path, dependencies
             current_version = None
@@ -162,7 +171,7 @@ class CygwinRelease:
                         raise RuntimeError(
                             "Depends line found without a package section or version"
                         )
-                    dependencies = [dep.strip() for dep in field_value.split(",")]
+                    dependencies = parse_dependencies(field_value)
 
                 continue
 
