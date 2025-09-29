@@ -20,6 +20,6 @@ from cimple.common.version import version_compare
         ("1.0.0-1", "1.0.0-1", 0),
     ],
 )
-def test_version(v1, v2, expected):
+def test_version(v1: str, v2: str, expected: int):
     result = version_compare(v1, v2)
     assert result == expected, f"Expected {expected} but got {result} for {v1} vs {v2}"

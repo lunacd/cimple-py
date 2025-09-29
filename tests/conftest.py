@@ -1,19 +1,23 @@
+# pyright: reportUnknownMemberType=false
+
 import importlib.resources
 import json
 import pathlib
+import typing
 
 import pyfakefs.fake_filesystem
 import pytest
 
 from cimple import common
 from cimple.models import pkg as pkg_models
+from cimple.models import snapshot as snapshot_models
 from cimple.snapshot import core as snapshot_core
 
 
 @pytest.fixture(name="basic_cimple_store")
 def basic_cimple_store_fixture(fs: pyfakefs.fake_filesystem.FakeFilesystem) -> None:
     # Create snapshot
-    snapshot_data = {
+    snapshot_data: dict[str, typing.Any] = {
         "version": 0,
         "name": "test_snapshot",
         "pkgs": [
@@ -63,19 +67,20 @@ def basic_cimple_store_fixture(fs: pyfakefs.fake_filesystem.FakeFilesystem) -> N
         "ancestor": "root",
         "changes": {"add": [], "remove": []},
     }
-    fs.create_file(
+    snapshot = snapshot_models.SnapshotModel.model_validate(snapshot_data)
+    _ = fs.create_file(
         common.constants.cimple_snapshot_dir / "test-snapshot.json",
         contents=json.dumps(snapshot_data),
     )
 
     # Add binary packages
-    for pkg in snapshot_data["pkgs"]:
-        if pkg["pkg_type"] != "bin":
+    for pkg in snapshot.pkgs:
+        if pkg.root.pkg_type != "bin":
             continue
 
-        pkg_tarball_name = f"{pkg['name']}-{pkg['sha256']}.tar.{pkg['compression_method']}"
+        pkg_tarball_name = f"{pkg.root.name}-{pkg.root.sha256}.tar.{pkg.root.compression_method}"
         with importlib.resources.path("tests", f"data/pkg/{pkg_tarball_name}") as pkg_path:
-            fs.add_real_file(
+            _ = fs.add_real_file(
                 pkg_path,
                 read_only=False,
                 target_path=common.constants.cimple_pkg_dir / pkg_tarball_name,
@@ -83,7 +88,7 @@ def basic_cimple_store_fixture(fs: pyfakefs.fake_filesystem.FakeFilesystem) -> N
 
     # Add orig tarballs
     with importlib.resources.path("tests", "data/orig") as orig_path:
-        fs.add_real_directory(
+        _ = fs.add_real_directory(
             orig_path,
             target_path=common.constants.cimple_orig_dir,
             read_only=True,
@@ -91,7 +96,7 @@ def basic_cimple_store_fixture(fs: pyfakefs.fake_filesystem.FakeFilesystem) -> N
 
     # Add image tarballs
     with importlib.resources.path("tests", "data/image") as image_path:
-        fs.add_real_directory(
+        _ = fs.add_real_directory(
             image_path,
             target_path=common.constants.cimple_image_dir,
             read_only=True,
@@ -102,40 +107,43 @@ def basic_cimple_store_fixture(fs: pyfakefs.fake_filesystem.FakeFilesystem) -> N
 def cimple_pi_fixture(fs: pyfakefs.fake_filesystem.FakeFilesystem) -> pathlib.Path:
     pi_target_path = pathlib.Path("/pi")
     with importlib.resources.path("tests", "data/pi") as pi_path:
-        fs.add_real_directory(pi_path, target_path=pi_target_path, read_only=True)
+        _ = fs.add_real_directory(pi_path, target_path=pi_target_path, read_only=True)
     return pi_target_path
 
 
+class MockHttpResponse:
+    def __init__(self, content: bytes):
+        self.content: bytes = content
+        self.status_code: int = 200
+        self.ok: bool = True
+
+    @property
+    def text(self):
+        return self.content.decode("utf-8")
+
+    def raise_for_status(self):
+        if not self.ok:
+            raise RuntimeError(f"HTTP error: {self.status_code}")
+
+
+class MockHttp404Response:
+    def __init__(self):
+        self.status_code: int = 404
+        self.ok: bool = False
+
+
 @pytest.fixture(name="cygwin_release_content_side_effect")
-def cygwin_release_content_side_effect_fixture(fs: pyfakefs.fake_filesystem.FakeFilesystem):
+def cygwin_release_content_side_effect_fixture(
+    fs: pyfakefs.fake_filesystem.FakeFilesystem,
+) -> typing.Callable[[str], MockHttpResponse | MockHttp404Response]:
     # It's not necessary for this mock to use pyfakefs.
     # But for test cases that do use pyfakefs, this mock would stop working if it doesn't use it.
 
     # Use data/cygwin directory to mock Cygwin repository files
     with importlib.resources.path("tests", "data/cygwin") as cygwin_data_root:
-        fs.add_real_directory(cygwin_data_root, target_path="/cygwin", read_only=True)
+        _ = fs.add_real_directory(cygwin_data_root, target_path="/cygwin", read_only=True)
 
-    class MockResponse:
-        def __init__(self, content: bytes):
-            self.content = content
-            self.status_code = 200
-            self.ok = True
-
-        @property
-        def text(self):
-            return self.content.decode("utf-8")
-
-        def raise_for_status(self):
-            if not self.ok:
-                raise RuntimeError(f"HTTP error: {self.status_code}")
-
-    class Mock404Response:
-        def __init__(self):
-            self.status_code = 404
-            self.ok = False
-
-    def mock_cygwin_release_content(*args):
-        url: str = args[0]
+    def mock_cygwin_release_content(url: str):
         assert url.startswith(common.constants.cygwin_pkg_url), (
             "Unexpected access to non-Cygwin URL"
         )
@@ -148,9 +156,9 @@ def cygwin_release_content_side_effect_fixture(fs: pyfakefs.fake_filesystem.Fake
         print(f"Using local Cygwin data: {mock_file_path}")
 
         if mock_file_path.exists():
-            return MockResponse(mock_file_path.read_bytes())
+            return MockHttpResponse(mock_file_path.read_bytes())
 
-        return Mock404Response()
+        return MockHttp404Response()
 
     return mock_cygwin_release_content
 

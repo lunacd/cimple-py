@@ -1,8 +1,11 @@
+import pytest
+
 from cimple import snapshot
 from cimple.models import pkg as pkg_models
 
 
-def test_get_build_depends(basic_cimple_store: None):
+@pytest.mark.usefixtures("basic_cimple_store")
+def test_get_build_depends():
     # Given: a basic snapshot
     cimple_snapshot = snapshot.core.load_snapshot("test-snapshot")
 

@@ -34,4 +34,4 @@ def test_interpolate(input_str: str, context: dict[str, str], result: str):
 )
 def test_interpolate_error(input_str: str, context: dict[str, str], exception_regex: str):
     with pytest.raises(RuntimeError, match=exception_regex):
-        interpolate(input_str, context)
+        _ = interpolate(input_str, context)

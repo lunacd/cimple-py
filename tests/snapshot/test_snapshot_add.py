@@ -1,16 +1,29 @@
-import pytest
+import pathlib
+import typing
 
+import pytest
+from pytest_mock import MockerFixture
+
+import tests.conftest
 from cimple import common
 from cimple.models import pkg as pkg_models
 from cimple.models import snapshot as snapshot_models
 from cimple.snapshot import ops as snapshot_ops
 
 
+@pytest.mark.usefixtures("basic_cimple_store")
 def test_snapshot_add_unresolvable_dep(
-    cimple_pi, basic_cimple_store, cygwin_release_content_side_effect, mocker, helpers
+    cimple_pi: pathlib.Path,
+    cygwin_release_content_side_effect: typing.Callable[
+        [str], tests.conftest.MockHttpResponse | tests.conftest.MockHttp404Response
+    ],
+    mocker: MockerFixture,
+    helpers: tests.conftest.Helpers,
 ):
     # GIVEN: a root snapshot
-    mocker.patch("cimple.pkg.cygwin.requests.get", side_effect=cygwin_release_content_side_effect)
+    _ = mocker.patch(
+        "cimple.pkg.cygwin.requests.get", side_effect=cygwin_release_content_side_effect
+    )
     root_snapshot = helpers.mock_cimple_snapshot([])
 
     # WHEN: adding a package to the snapshot
@@ -19,7 +32,7 @@ def test_snapshot_add_unresolvable_dep(
         RuntimeError,
         match="Binary dependency bin:cygwin for package src:make not found in snapshot",
     ):
-        snapshot_ops.add(
+        _ = snapshot_ops.add(
             root_snapshot,
             [
                 snapshot_ops.VersionedSourcePackage(
@@ -31,11 +44,19 @@ def test_snapshot_add_unresolvable_dep(
         )
 
 
+@pytest.mark.usefixtures("basic_cimple_store")
 def test_snapshot_add_simple(
-    cimple_pi, basic_cimple_store, cygwin_release_content_side_effect, mocker, helpers
+    cimple_pi: pathlib.Path,
+    cygwin_release_content_side_effect: typing.Callable[
+        [str], tests.conftest.MockHttpResponse | tests.conftest.MockHttp404Response
+    ],
+    mocker: MockerFixture,
+    helpers: tests.conftest.Helpers,
 ):
     # GIVEN: a snapshot with make's binary dependencies
-    mocker.patch("cimple.pkg.cygwin.requests.get", side_effect=cygwin_release_content_side_effect)
+    _ = mocker.patch(
+        "cimple.pkg.cygwin.requests.get", side_effect=cygwin_release_content_side_effect
+    )
     snapshot = helpers.mock_cimple_snapshot(
         [
             pkg_models.bin_pkg_id("cygwin"),
@@ -70,11 +91,19 @@ def test_snapshot_add_simple(
     assert make_bin_pkg.depends == ["bin:cygwin", "bin:libguile3.0_1", "bin:libintl8"]
 
 
+@pytest.mark.usefixtures("basic_cimple_store")
 def test_snapshot_add_multiple_packages(
-    cimple_pi, basic_cimple_store, cygwin_release_content_side_effect, mocker, helpers
+    cimple_pi: pathlib.Path,
+    cygwin_release_content_side_effect: typing.Callable[
+        [str], tests.conftest.MockHttpResponse | tests.conftest.MockHttp404Response
+    ],
+    mocker: MockerFixture,
+    helpers: tests.conftest.Helpers,
 ):
     # GIVEN: a snapshot with make's binary dependencies, except cygwin
-    mocker.patch("cimple.pkg.cygwin.requests.get", side_effect=cygwin_release_content_side_effect)
+    _ = mocker.patch(
+        "cimple.pkg.cygwin.requests.get", side_effect=cygwin_release_content_side_effect
+    )
     snapshot = helpers.mock_cimple_snapshot(
         [
             pkg_models.bin_pkg_id("libguile3.0_1"),

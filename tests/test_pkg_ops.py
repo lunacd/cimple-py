@@ -1,19 +1,24 @@
-from unittest import mock
+import pathlib
+import typing
+import unittest.mock
 
 import pytest
+from pytest_mock import MockerFixture
 
+import tests.conftest
 from cimple import common
 from cimple.models import pkg as pkg_models
 from cimple.pkg import ops as pkg_ops
 from cimple.snapshot import core as snapshot_core
 
 
-def test_build_pkg_custom_with_cimple_pi(cimple_pi, basic_cimple_store, mocker):
+@pytest.mark.usefixtures("basic_cimple_store")
+def test_build_pkg_custom_with_cimple_pi(cimple_pi: pathlib.Path, mocker: MockerFixture):
     # GIVEN: a real source package to build
     package_id = pkg_models.src_pkg_id("custom")
     package_version = "0.0.1-1"
-    cimple_snapshot = mock.Mock()
-    return_process = mock.Mock()
+    cimple_snapshot = unittest.mock.Mock()
+    return_process = unittest.mock.Mock()
     return_process.returncode = 0
     run_command_mock = mocker.patch(
         "cimple.pkg.ops.common.cmd.run_command", return_value=return_process
@@ -35,15 +40,22 @@ def test_build_pkg_custom_with_cimple_pi(cimple_pi, basic_cimple_store, mocker):
     assert result.is_dir()
 
 
+@pytest.mark.usefixtures("basic_cimple_store")
 @pytest.mark.skipif(
     not common.system.platform_name().startswith("windows"),
     reason="Cygwin is only relevant on Windows",
 )
 def test_build_cygwin_pkg(
-    basic_cimple_store, cimple_pi, cygwin_release_content_side_effect, mocker
+    cimple_pi: pathlib.Path,
+    cygwin_release_content_side_effect: typing.Callable[
+        [str], tests.conftest.MockHttpResponse | tests.conftest.MockHttp404Response
+    ],
+    mocker: MockerFixture,
 ):
     # GIVEN: A basic Cimple store with root snapshot
-    mocker.patch("cimple.pkg.cygwin.requests.get", side_effect=cygwin_release_content_side_effect)
+    _ = mocker.patch(
+        "cimple.pkg.cygwin.requests.get", side_effect=cygwin_release_content_side_effect
+    )
     cimple_snapshot = snapshot_core.load_snapshot("root")
     uut = pkg_ops.PkgOps()
 
