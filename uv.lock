@@ -64,7 +64,7 @@ dependencies = [
     { name = "zstandard" },
 ]
 
-[package.optional-dependencies]
+[package.dev-dependencies]
 dev = [
     { name = "pyfakefs" },
     { name = "pyright" },
@@ -79,17 +79,20 @@ requires-dist = [
     { name = "networkx" },
     { name = "patch-ng" },
     { name = "pydantic" },
-    { name = "pyfakefs", marker = "extra == 'dev'" },
-    { name = "pyright", marker = "extra == 'dev'" },
-    { name = "pytest", marker = "extra == 'dev'" },
-    { name = "pytest-cov", marker = "extra == 'dev'" },
-    { name = "pytest-mock", marker = "extra == 'dev'" },
     { name = "requests" },
-    { name = "ruff", marker = "extra == 'dev'" },
     { name = "typer" },
     { name = "zstandard" },
 ]
-provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pyfakefs" },
+    { name = "pyright" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "pytest-mock" },
+    { name = "ruff" },
+]
 
 [[package]]
 name = "click"
