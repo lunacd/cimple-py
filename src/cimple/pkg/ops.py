@@ -7,7 +7,8 @@ import typing
 import patch_ng
 import requests
 
-from cimple import common, images, snapshot
+import cimple.snapshot.core as snapshot_core
+from cimple import common, images
 from cimple.models import pkg as pkg_models
 from cimple.models import pkg_config as pkg_config_models
 from cimple.models import snapshot as snapshot_models
@@ -33,7 +34,7 @@ class PkgOps:
         self,
         target_path: pathlib.Path,
         pkg_id: pkg_models.BinPkgId,
-        cimple_snapshot: snapshot.core.CimpleSnapshot,
+        cimple_snapshot: snapshot_core.CimpleSnapshot,
     ):
         """
         Install a package and its transitive dependencies into the target path.
@@ -54,7 +55,7 @@ class PkgOps:
         self,
         target_path: pathlib.Path,
         pkg_id: pkg_models.BinPkgId,
-        cimple_snapshot: snapshot.core.CimpleSnapshot,
+        cimple_snapshot: snapshot_core.CimpleSnapshot,
     ):
         common.logging.info("Installing %s", pkg_id)
 
@@ -81,7 +82,7 @@ class PkgOps:
         config: pkg_config_models.PkgConfigCustom,
         *,
         pi_path: pathlib.Path,
-        cimple_snapshot: snapshot.core.CimpleSnapshot,
+        cimple_snapshot: snapshot_core.CimpleSnapshot,
         parallel: int,
     ) -> pathlib.Path:
         # Prepare chroot image
@@ -222,7 +223,7 @@ class PkgOps:
         self,
         pkg_config: pkg_config_models.PkgConfigCygwin,
         *,
-        cimple_snapshot: snapshot.core.CimpleSnapshot,
+        cimple_snapshot: snapshot_core.CimpleSnapshot,
     ) -> pathlib.Path:
         # Download and parse Cygwin release file
         self.initialize_cygwin()
@@ -259,7 +260,7 @@ class PkgOps:
         package_version: str,
         *,
         pi_path: pathlib.Path,
-        cimple_snapshot: snapshot.core.CimpleSnapshot,
+        cimple_snapshot: snapshot_core.CimpleSnapshot,
         parallel: int,
     ) -> pathlib.Path:
         config = pkg_config_models.load_pkg_config(pi_path, package_id, package_version)

@@ -2,7 +2,7 @@ import pathlib
 
 import pytest
 
-from cimple import snapshot
+import cimple.snapshot.core as snapshot_core
 from cimple.models import pkg as pkg_models
 from cimple.pkg import ops as pkg_ops
 
@@ -10,7 +10,7 @@ from cimple.pkg import ops as pkg_ops
 @pytest.mark.usefixtures("basic_cimple_store")
 def test_install_single_pkg():
     # Given: a basic snapshot with binary packages
-    cimple_snapshot = snapshot.core.load_snapshot("test-snapshot")
+    cimple_snapshot = snapshot_core.load_snapshot("test-snapshot")
     pkg1 = pkg_models.bin_pkg_id("pkg1-bin")
     uut = pkg_ops.PkgOps()
 
@@ -26,7 +26,7 @@ def test_install_single_pkg():
 @pytest.mark.usefixtures("basic_cimple_store")
 def test_install_pkg_with_dependencies():
     # Given: a basic snapshot with binary packages
-    cimple_snapshot = snapshot.core.load_snapshot("test-snapshot")
+    cimple_snapshot = snapshot_core.load_snapshot("test-snapshot")
     pkg2 = pkg_models.bin_pkg_id("pkg2-bin")
     uut = pkg_ops.PkgOps()
 
