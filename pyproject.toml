@@ -44,3 +44,6 @@ select = [
     "PTH", # Use pathlib instead of os.path
     "NPY", # Some numpy-specific things
 ]
+
+[tool.pyright]
+reportImplicitStringConcatenation = "none"

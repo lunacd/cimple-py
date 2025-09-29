@@ -66,11 +66,6 @@ class PkgOps:
             )
         assert snapshot_models.snapshot_pkg_is_bin(pkg_data.root)
 
-        if pkg_data is None:
-            raise RuntimeError(
-                f"Requested package {pkg_id} not found in snapshot {cimple_snapshot.name}."
-            )
-
         with tarfile.open(
             common.constants.cimple_pkg_dir / pkg_data.root.tarball_name,
             common.tarfile.get_tarfile_mode("r", pkg_data.root.compression_method),
@@ -108,7 +103,7 @@ class PkgOps:
             res = requests.get(source_url)
             res.raise_for_status()
             with orig_file.open("wb") as f:
-                f.write(res.content)
+                _ = f.write(res.content)
 
         # Verify source tarball
         common.logging.info("Verifying original source")
@@ -181,7 +176,7 @@ class PkgOps:
             )
         )
 
-        def interpolate_variables(input_str):
+        def interpolate_variables(input_str: str):
             return common.str_interpolation.interpolate(input_str, cimple_builtin_variables)
 
         # TODO: support overriding rules per-platform
@@ -196,8 +191,8 @@ class PkgOps:
                 cwd = build_dir / interpolate_variables(rule.cwd) if rule.cwd else build_dir
                 env = rule.env if rule.env else {}
 
-            interpolated_cmd = []
-            interpolated_env = {}
+            interpolated_cmd: list[str] = []
+            interpolated_env: dict[str, str] = {}
 
             for cmd_item in cmd:
                 interpolated_cmd.append(interpolate_variables(cmd_item))
@@ -222,8 +217,6 @@ class PkgOps:
     def _build_cygwin_pkg(
         self,
         pkg_config: pkg_config_models.PkgConfigCygwin,
-        *,
-        cimple_snapshot: snapshot_core.CimpleSnapshot,
     ) -> pathlib.Path:
         # Download and parse Cygwin release file
         self.initialize_cygwin()
@@ -276,7 +269,6 @@ class PkgOps:
             case "cygwin":
                 return self._build_cygwin_pkg(
                     typing.cast("pkg_config_models.PkgConfigCygwin", config.root),
-                    cimple_snapshot=cimple_snapshot,
                 )
 
     def resolve_dependencies(
