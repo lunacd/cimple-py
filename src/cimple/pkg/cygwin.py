@@ -12,7 +12,7 @@ def _parse_checksum_file(file_content: str) -> dict[str, str]:
     """
     Parses the checksum file content and returns a dictionary mapping file names to their checksums.
     """
-    checksums = {}
+    checksums: dict[str, str] = {}
     for line in file_content.splitlines():
         parts = line.split()
         if len(parts) < 2:
@@ -43,7 +43,7 @@ def download_cygwin_file(url_path: str, target_path: pathlib.Path) -> pathlib.Pa
     response = requests.get(file_url)
     response.raise_for_status()
     with output_path.open("wb") as f:
-        f.write(response.content)
+        _ = f.write(response.content)
 
     # Verify checksum
     actual_hash = common.hash.hash_file(output_path, "sha512")
@@ -72,7 +72,7 @@ class CygwinRelease:
 
     def __init__(self):
         self.packages: dict[str, CygwinRelease.CygwinPackage] = {}
-        self.initialized = False
+        self.initialized: bool = False
 
     def parse_release_file(self, release_content: str) -> None:
         current_package: str | None = None
@@ -100,7 +100,12 @@ class CygwinRelease:
             install_path = None
             dependencies = None
 
-        def record_package(current_package, current_version, install_path, dependencies):
+        def record_package(
+            current_package: str | None,
+            current_version: str | None,
+            install_path: str | None,
+            dependencies: list[str] | None,
+        ):
             # Only record if all required fields are present
             if not current_package or not current_version or not install_path:
                 return
