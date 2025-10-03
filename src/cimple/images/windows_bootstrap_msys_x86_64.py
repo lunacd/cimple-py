@@ -66,7 +66,7 @@ def make_image(msys_path: pathlib.Path, target_path: pathlib.Path):
     common.logging.info("Making windows bootstrap_msys image")
 
     pacman_path = msys_path / "usr" / "bin" / "pacman.exe"
-    subprocess.run([pacman_path, "-Syuw", "--noconfirm"] + msys2_packages, check=True)
+    _ = subprocess.run([pacman_path, "-Syuw", "--noconfirm"] + msys2_packages, check=True)
 
     cache_path = msys_path / "var" / "cache" / "pacman" / "pkg"
     cache_files = cache_path.iterdir()
