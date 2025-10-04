@@ -1,18 +1,43 @@
 import importlib.resources
-import tarfile
+import pathlib
 import tempfile
+
+import pytest
 
 import cimple.common.tarfile
 
 
-def test_extract_with_colon_path():
+@pytest.mark.parametrize(
+    "path",
+    [
+        "misc/a_random_tar_gz.tar.gz",
+        "misc/a_random_tar_zst.tar.zst",
+        "misc/a_random_tar_xz.tar.xz",
+    ],
+)
+def test_extract(path):
     # GIVEN: a temp path
     with (
-        importlib.resources.path(
-            "tests", "data/cygwin/x86_64/release/bash/bash-5.2.21-1.tar.xz"
-        ) as tarfile_path,
+        importlib.resources.path("tests", f"data/{path}") as tarfile_path,
         tempfile.TemporaryDirectory() as tempdir,
-        tarfile.open(tarfile_path) as tar,
     ):
+        tempdir_path = pathlib.Path(tempdir)
+
         # WHEN: extracting the tarball
-        tar.extractall(tempdir, filter=cimple.common.tarfile.writable_extract_filter)
+        cimple.common.tarfile.extract(tarfile_path, tempdir_path)
+
+        # THEN: it should succeed (by not throwing)
+        assert (tempdir_path / "a.txt").exists()
+
+
+def test_extract_colon_file():
+    # GIVEN: a temp path
+    with (
+        importlib.resources.path("tests", "data/misc/colon.tar.gz") as tarfile_path,
+        tempfile.TemporaryDirectory() as tempdir,
+    ):
+        tempdir_path = pathlib.Path(tempdir)
+
+        # WHEN: extracting the tarball
+        # THEN: it should succeed (by not throwing)
+        cimple.common.tarfile.extract(tarfile_path, tempdir_path)

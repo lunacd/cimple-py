@@ -7,6 +7,7 @@ import typing
 import patch_ng
 import requests
 
+import cimple.common.tarfile
 import cimple.snapshot.core as snapshot_core
 from cimple import common, images
 from cimple.models import pkg as pkg_models
@@ -238,12 +239,7 @@ class PkgOps:
             )
 
             # Extract to output directory
-            # TODO: be smarter about the compression method used based on extension
-            with tarfile.open(
-                downloaded_install_file,
-                common.tarfile.get_tarfile_mode("r", "xz"),
-            ) as tar:
-                tar.extractall(output_dir, filter=common.tarfile.writable_extract_filter)
+            cimple.common.tarfile.extract(downloaded_install_file, output_dir)
 
         return output_dir
 
