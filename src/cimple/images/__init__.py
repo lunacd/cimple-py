@@ -1,17 +1,19 @@
-__all__ = ["windows_bootstrap_msys_x86_64", "ops"]
+__all__ = ["ops"]
 
-import pathlib
 import shutil
 import tarfile
+import typing
 
 import requests
 
 import cimple.common as common
 
 # Re-exports
-import cimple.images.windows_bootstrap_msys_x86_64 as windows_bootstrap_msys_x86_64
 from cimple.common.tarfile import writable_extract_filter
 from cimple.images import ops
+
+if typing.TYPE_CHECKING:
+    import pathlib
 
 
 def get_image(image_name: str):

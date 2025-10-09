@@ -1,6 +1,9 @@
-import pathlib
 import shutil
 import stat
+import typing
+
+if typing.TYPE_CHECKING:
+    import pathlib
 
 
 def ensure_path(path: pathlib.Path):

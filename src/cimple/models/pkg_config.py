@@ -1,10 +1,12 @@
-import pathlib
 import tomllib
 import typing
 
 import pydantic
 
 from cimple.models import pkg as models_pkg
+
+if typing.TYPE_CHECKING:
+    import pathlib
 
 
 class PkgConfigPkgSection(pydantic.BaseModel):

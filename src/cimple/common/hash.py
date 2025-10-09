@@ -1,6 +1,8 @@
 import hashlib
-import pathlib
 import typing
+
+if typing.TYPE_CHECKING:
+    import pathlib
 
 
 def hash_file(path: pathlib.Path, sha_type: typing.Literal["sha256", "sha512"]) -> str:
