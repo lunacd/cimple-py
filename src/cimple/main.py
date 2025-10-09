@@ -51,18 +51,5 @@ def clean(target: str):
         print(f"Unknown target: {target}. Supported targets: images.")
 
 
-@app.command()
-def build_image(
-    name: str,
-    target_path: typing.Annotated[str, typer.Option()],
-    msys_path: typing.Annotated[str | None, typer.Option()] = None,
-):
-    if name == "windows-bootstrap_msys-x86_64":
-        assert msys_path is not None, "msys_path must be provided for windows-bootstrap-msys-x86_64"
-        images.windows_bootstrap_msys_x86_64.make_image(
-            pathlib.Path(msys_path), pathlib.Path(target_path)
-        )
-
-
 def main():
     app()
