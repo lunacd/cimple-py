@@ -1,9 +1,12 @@
 import os
-import pathlib
 import shutil
 import subprocess
+import typing
 
 import cimple.common as common
+
+if typing.TYPE_CHECKING:
+    import pathlib
 
 
 def baseline_env() -> dict[str, str]:

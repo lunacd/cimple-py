@@ -2,6 +2,7 @@ import copy
 import pathlib
 import tarfile
 import tempfile
+import typing
 
 import pydantic
 
@@ -10,7 +11,9 @@ from cimple.common import hash as cimple_hash
 from cimple.common import tarfile as cimple_tarfile
 from cimple.models import pkg as pkg_models
 from cimple.pkg import ops as pkg_ops
-from cimple.snapshot import core as snapshot_core
+
+if typing.TYPE_CHECKING:
+    from cimple.snapshot import core as snapshot_core
 
 
 class VersionedSourcePackage(pydantic.BaseModel):

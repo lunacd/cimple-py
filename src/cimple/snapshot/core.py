@@ -1,4 +1,3 @@
-import collections.abc
 import copy
 import datetime
 import typing
@@ -8,6 +7,9 @@ import networkx as nx
 from cimple import common
 from cimple.models import pkg as pkg_models
 from cimple.models import snapshot as snapshot_models
+
+if typing.TYPE_CHECKING:
+    import collections.abc
 
 
 class CimpleSnapshot:
@@ -76,7 +78,7 @@ class CimpleSnapshot:
         return all(pkg_models.is_pkg_id(node) for node in node_set)
 
     @staticmethod
-    def create_from(origin_snapshot: "CimpleSnapshot") -> "CimpleSnapshot":
+    def create_from(origin_snapshot: CimpleSnapshot) -> CimpleSnapshot:
         new_snapshot = copy.deepcopy(origin_snapshot)
         new_snapshot.changes = []
         new_snapshot.ancestor = origin_snapshot.name
@@ -204,7 +206,7 @@ class CimpleSnapshot:
             if snapshot_models.snapshot_pkg_is_src(pkg.root):
                 yield pkg.root.id
 
-    def compare_pkgs_with(self, rhs: "CimpleSnapshot") -> None | pkg_models.PkgId:
+    def compare_pkgs_with(self, rhs: CimpleSnapshot) -> None | pkg_models.PkgId:
         """
         Compare packages with another snapshot.
         When they are identical, return None.

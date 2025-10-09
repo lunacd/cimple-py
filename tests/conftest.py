@@ -5,13 +5,15 @@ import json
 import pathlib
 import typing
 
-import pyfakefs.fake_filesystem
 import pytest
 
 from cimple import common
 from cimple.models import pkg as pkg_models
 from cimple.models import snapshot as snapshot_models
 from cimple.snapshot import core as snapshot_core
+
+if typing.TYPE_CHECKING:
+    import pyfakefs.fake_filesystem
 
 
 @pytest.fixture(name="basic_cimple_store")

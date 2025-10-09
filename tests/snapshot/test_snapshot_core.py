@@ -1,6 +1,10 @@
+import typing
+
 import cimple.models.pkg
 import cimple.models.snapshot
-import tests.conftest
+
+if typing.TYPE_CHECKING:
+    import tests.conftest
 
 
 def test_add_pkg_to_snapshot(helpers: tests.conftest.Helpers):

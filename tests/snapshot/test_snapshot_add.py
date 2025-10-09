@@ -1,14 +1,18 @@
-import pathlib
 import typing
 
 import pytest
-from pytest_mock import MockerFixture
 
-import tests.conftest
 from cimple import common
 from cimple.models import pkg as pkg_models
 from cimple.models import snapshot as snapshot_models
 from cimple.snapshot import ops as snapshot_ops
+
+if typing.TYPE_CHECKING:
+    import pathlib
+
+    from pytest_mock import MockerFixture
+
+    import tests.conftest
 
 
 @pytest.mark.usefixtures("basic_cimple_store")
