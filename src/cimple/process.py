@@ -3,7 +3,7 @@ import shutil
 import subprocess
 import typing
 
-import cimple.common as common
+import cimple.logging
 
 if typing.TYPE_CHECKING:
     import pathlib
@@ -59,5 +59,5 @@ def run_command(
     # TODO: if PATH is specified in env, merge with it.
     env.update({"PATH": path})
 
-    common.logging.debug("Executing %s in %s, env %s", " ".join(args), cwd, env)
+    cimple.logging.debug("Executing %s in %s, env %s", " ".join(args), cwd, env)
     return subprocess.run(args, text=True, env=env, cwd=cwd)

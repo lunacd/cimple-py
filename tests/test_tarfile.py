@@ -4,7 +4,7 @@ import tempfile
 
 import pytest
 
-import cimple.common.tarfile
+import cimple.tarfile
 
 
 @pytest.mark.parametrize(
@@ -24,7 +24,7 @@ def test_extract(path):
         tempdir_path = pathlib.Path(tempdir)
 
         # WHEN: extracting the tarball
-        cimple.common.tarfile.extract(tarfile_path, tempdir_path)
+        cimple.tarfile.extract(tarfile_path, tempdir_path)
 
         # THEN: it should succeed (by not throwing)
         assert (tempdir_path / "a.txt").exists()
@@ -40,4 +40,4 @@ def test_extract_colon_file():
 
         # WHEN: extracting the tarball
         # THEN: it should succeed (by not throwing)
-        cimple.common.tarfile.extract(tarfile_path, tempdir_path)
+        cimple.tarfile.extract(tarfile_path, tempdir_path)

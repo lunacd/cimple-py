@@ -1,6 +1,6 @@
 import pathlib
 
-from cimple import common
+import cimple.system
 
 
 def get_image_specific_builtin_variables(
@@ -11,16 +11,16 @@ def get_image_specific_builtin_variables(
     """
     if platform == "windows" and variant == "bootstrap_msys":
         return {
-            "cimple_output_dir_cygwin": common.system.to_cygwin_path(
+            "cimple_output_dir_cygwin": cimple.system.to_cygwin_path(
                 pathlib.Path(variables["cimple_output_dir"])
             ).as_posix(),
-            "cimple_build_dir_cygwin": common.system.to_cygwin_path(
+            "cimple_build_dir_cygwin": cimple.system.to_cygwin_path(
                 pathlib.Path(variables["cimple_build_dir"])
             ).as_posix(),
-            "cimple_image_dir_cygwin": common.system.to_cygwin_path(
+            "cimple_image_dir_cygwin": cimple.system.to_cygwin_path(
                 pathlib.Path(variables["cimple_image_dir"])
             ).as_posix(),
-            "cimple_deps_dir_cygwin": common.system.to_cygwin_path(
+            "cimple_deps_dir_cygwin": cimple.system.to_cygwin_path(
                 pathlib.Path(variables["cimple_deps_dir"])
             ).as_posix(),
         }

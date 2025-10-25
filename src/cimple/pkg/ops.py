@@ -7,9 +7,15 @@ import typing
 import patch_ng
 import requests
 
-import cimple.common.tarfile
+import cimple.constants
+import cimple.hash
+import cimple.logging
+import cimple.process
 import cimple.snapshot.core as snapshot_core
-from cimple import common, images
+import cimple.str_interpolation
+import cimple.tarfile
+import cimple.util
+from cimple import images
 from cimple.models import pkg as pkg_models
 from cimple.models import pkg_config as pkg_config_models
 from cimple.models import snapshot as snapshot_models
@@ -41,7 +47,7 @@ class PkgOps:
         Install a package and its transitive dependencies into the target path.
         """
         # Ensure the target path exists
-        common.util.ensure_path(target_path)
+        cimple.util.ensure_path(target_path)
 
         # Install the package itself
         self.install_pkg(target_path, pkg_id, cimple_snapshot)
@@ -58,7 +64,7 @@ class PkgOps:
         pkg_id: pkg_models.BinPkgId,
         cimple_snapshot: snapshot_core.CimpleSnapshot,
     ):
-        common.logging.info("Installing %s", pkg_id)
+        cimple.logging.info("Installing %s", pkg_id)
 
         pkg_data = cimple_snapshot.get_snapshot_pkg(pkg_id)
         if pkg_data is None:
@@ -68,10 +74,10 @@ class PkgOps:
         assert snapshot_models.snapshot_pkg_is_bin(pkg_data.root)
 
         with tarfile.open(
-            common.constants.cimple_pkg_dir / pkg_data.root.tarball_name,
-            common.tarfile.get_tarfile_mode("r", pkg_data.root.compression_method),
+            cimple.constants.cimple_pkg_dir / pkg_data.root.tarball_name,
+            cimple.tarfile.get_tarfile_mode("r", pkg_data.root.compression_method),
         ) as tar:
-            tar.extractall(target_path, filter=common.tarfile.writable_extract_filter)
+            tar.extractall(target_path, filter=cimple.tarfile.writable_extract_filter)
 
     def _build_custom_pkg(
         self,
@@ -82,23 +88,23 @@ class PkgOps:
         parallel: int,
     ) -> pathlib.Path:
         # Prepare chroot image
-        common.logging.info("Preparing image")
+        cimple.logging.info("Preparing image")
         # TODO: support multiple platforms and arch
         image_path = images.prepare_image("windows", "x86_64", config.input.image_type)
 
         # Ensure needed directories exist
-        common.util.ensure_path(common.constants.cimple_orig_dir)
-        common.util.ensure_path(common.constants.cimple_pkg_build_dir)
-        common.util.ensure_path(common.constants.cimple_pkg_output_dir)
-        common.util.ensure_path(common.constants.cimple_deps_dir)
+        cimple.util.ensure_path(cimple.constants.cimple_orig_dir)
+        cimple.util.ensure_path(cimple.constants.cimple_pkg_build_dir)
+        cimple.util.ensure_path(cimple.constants.cimple_pkg_output_dir)
+        cimple.util.ensure_path(cimple.constants.cimple_deps_dir)
 
         # Get source tarball
-        common.logging.info("Fetching original source")
+        cimple.logging.info("Fetching original source")
         pkg_full_name = f"{config.name}-{config.version}"
         pkg_tarball_name = (
             f"{config.name}-{config.input.source_version}.tar.{config.input.tarball_compression}"
         )
-        orig_file = common.constants.cimple_orig_dir / pkg_tarball_name
+        orig_file = cimple.constants.cimple_orig_dir / pkg_tarball_name
         if not orig_file.exists():
             source_url = f"https://cimple-pi.lunacd.com/orig/{pkg_tarball_name}"
             res = requests.get(source_url)
@@ -107,8 +113,8 @@ class PkgOps:
                 _ = f.write(res.content)
 
         # Verify source tarball
-        common.logging.info("Verifying original source")
-        orig_hash = common.hash.hash_file(orig_file, sha_type="sha256")
+        cimple.logging.info("Verifying original source")
+        orig_hash = cimple.hash.hash_file(orig_file, sha_type="sha256")
         if orig_hash != config.input.sha256:
             raise RuntimeError(
                 "Corrupted original source tarball, "
@@ -116,36 +122,36 @@ class PkgOps:
             )
 
         # Install dependencies
-        common.logging.info("Installing dependencies")
-        deps_dir = common.constants.cimple_deps_dir / pkg_full_name
-        common.util.clear_path(deps_dir)
+        cimple.logging.info("Installing dependencies")
+        deps_dir = cimple.constants.cimple_deps_dir / pkg_full_name
+        cimple.util.clear_path(deps_dir)
         for dep in config.pkg.build_depends:
             self.install_package_and_deps(deps_dir, dep, cimple_snapshot)
 
         # Prepare build and output directories
-        build_dir = common.constants.cimple_pkg_build_dir / pkg_full_name
-        output_dir = common.constants.cimple_pkg_output_dir / pkg_full_name
-        common.util.clear_path(build_dir)
-        common.util.clear_path(output_dir)
+        build_dir = cimple.constants.cimple_pkg_build_dir / pkg_full_name
+        output_dir = cimple.constants.cimple_pkg_output_dir / pkg_full_name
+        cimple.util.clear_path(build_dir)
+        cimple.util.clear_path(output_dir)
 
         # Extract source tarball
         # TODO: make this unique per build somehow
-        common.logging.info("Extracting original source")
+        cimple.logging.info("Extracting original source")
         with tarfile.open(
-            orig_file, common.tarfile.get_tarfile_mode("r", config.input.tarball_compression)
+            orig_file, cimple.tarfile.get_tarfile_mode("r", config.input.tarball_compression)
         ) as tar:
             if config.input.tarball_root_dir is None:
-                tar.extractall(build_dir, filter=common.tarfile.writable_extract_filter)
+                tar.extractall(build_dir, filter=cimple.tarfile.writable_extract_filter)
             else:
-                common.tarfile.extract_directory_from_tar(
+                cimple.tarfile.extract_directory_from_tar(
                     tar, config.input.tarball_root_dir, build_dir
                 )
 
-        common.logging.info("Patching source")
+        cimple.logging.info("Patching source")
         pkg_path = pi_path / "pkg" / config.name / config.version
         patch_dir = pkg_path / "patches"
         for patch_name in config.input.patches:
-            common.logging.info("Applying %s", patch_name)
+            cimple.logging.info("Applying %s", patch_name)
             patch_path = patch_dir / patch_name
             if not patch_path.exists():
                 raise RuntimeError(f"Patch {patch_name} is not found in {patch_dir}.")
@@ -160,7 +166,7 @@ class PkgOps:
             if not patch_success:
                 raise RuntimeError(f"Failed to apply {patch_name}.")
 
-        common.logging.info("Starting build")
+        cimple.logging.info("Starting build")
 
         # TODO: built-in variables will likely need a more organized way to pass around
         cimple_builtin_variables: dict[str, str] = {
@@ -178,7 +184,7 @@ class PkgOps:
         )
 
         def interpolate_variables(input_str: str):
-            return common.str_interpolation.interpolate(input_str, cimple_builtin_variables)
+            return cimple.str_interpolation.interpolate(input_str, cimple_builtin_variables)
 
         # TODO: support overriding rules per-platform
         for rule in config.rules.default:
@@ -200,7 +206,7 @@ class PkgOps:
             for env_key, env_val in env.items():
                 interpolated_env[interpolate_variables(env_key)] = interpolate_variables(env_val)
 
-            process = common.cmd.run_command(
+            process = cimple.process.run_command(
                 interpolated_cmd,
                 image_path=image_path,
                 dependency_path=deps_dir,
@@ -212,7 +218,7 @@ class PkgOps:
                     f"Failed executing {' '.join(cmd)}, return code {process.returncode}."
                 )
 
-        common.logging.info("Build result is available in %s", output_dir)
+        cimple.logging.info("Build result is available in %s", output_dir)
         return output_dir
 
     def _build_cygwin_pkg(
@@ -228,9 +234,9 @@ class PkgOps:
 
         # Prepare output directory
         output_dir = (
-            common.constants.cimple_pkg_output_dir / f"{pkg_config.name}-{pkg_config.version}"
+            cimple.constants.cimple_pkg_output_dir / f"{pkg_config.name}-{pkg_config.version}"
         )
-        common.util.clear_path(output_dir)
+        cimple.util.clear_path(output_dir)
 
         # Download Cygwin tarball
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -239,7 +245,7 @@ class PkgOps:
             )
 
             # Extract to output directory
-            cimple.common.tarfile.extract(downloaded_install_file, output_dir)
+            cimple.tarfile.extract(downloaded_install_file, output_dir)
 
         return output_dir
 

@@ -2,7 +2,7 @@ import pathlib
 
 import pytest
 
-from cimple import common
+import cimple.system
 
 
 @pytest.mark.parametrize(
@@ -22,7 +22,7 @@ from cimple import common
     ],
 )
 @pytest.mark.skipif(
-    not common.system.platform_name().startswith("windows"),
+    not cimple.system.platform_name().startswith("windows"),
     reason="This test is only relevant for Cygwin paths on Windows",
 )
 def test_cygwin_path(cygwin_path, expected_path):
@@ -30,11 +30,11 @@ def test_cygwin_path(cygwin_path, expected_path):
     Test to ensure that the Cygwin path is correctly set up.
     This is a placeholder for actual test logic.
     """
-    assert common.system.to_cygwin_path(cygwin_path) == expected_path
+    assert cimple.system.to_cygwin_path(cygwin_path) == expected_path
 
 
 @pytest.mark.skipif(
-    common.system.platform_name().startswith("windows"),
+    cimple.system.platform_name().startswith("windows"),
     reason="This test is only for non-Windows systems",
 )
 def test_cygwin_path_is_no_op_on_posix():
@@ -42,4 +42,4 @@ def test_cygwin_path_is_no_op_on_posix():
     Test to ensure that the Cygwin path conversion is a no-op on non-Windows systems.
     """
     posix_path = pathlib.Path("/usr/local/bin/bash")
-    assert common.system.to_cygwin_path(posix_path) == posix_path
+    assert cimple.system.to_cygwin_path(posix_path) == posix_path

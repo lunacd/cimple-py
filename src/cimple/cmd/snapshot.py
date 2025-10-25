@@ -3,7 +3,7 @@ import typing
 
 import typer
 
-import cimple.common as common
+import cimple.logging
 from cimple.models import pkg as pkg_models
 from cimple.models import snapshot as snapshot_models
 from cimple.snapshot import core as snapshot_core
@@ -72,17 +72,17 @@ def reproduce(
     different_pkg_id = result_snapshot.compare_pkgs_with(snapshot_to_reproduce)
 
     if different_pkg_id is None:
-        common.logging.info(
+        cimple.logging.info(
             "All packages in snapshot %s are reproducible!", reproduce_snapshot_name
         )
         return
 
-    common.logging.info(
+    cimple.logging.info(
         "%s in snapshot %s is not reproducible!", different_pkg_id, reproduce_snapshot_name
     )
-    common.logging.info(
+    cimple.logging.info(
         "Dumping package data for %s obtained from reproduction...", different_pkg_id
     )
     package_data = result_snapshot.get_snapshot_pkg(different_pkg_id)
     assert package_data is not None
-    common.logging.info("%s", package_data.model_dump_json(indent=2))
+    cimple.logging.info("%s", package_data.model_dump_json(indent=2))

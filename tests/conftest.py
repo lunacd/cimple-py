@@ -7,7 +7,7 @@ import typing
 
 import pytest
 
-from cimple import common
+import cimple.constants
 from cimple.models import pkg as pkg_models
 from cimple.models import snapshot as snapshot_models
 from cimple.snapshot import core as snapshot_core
@@ -71,7 +71,7 @@ def basic_cimple_store_fixture(fs: pyfakefs.fake_filesystem.FakeFilesystem) -> N
     }
     snapshot = snapshot_models.SnapshotModel.model_validate(snapshot_data)
     _ = fs.create_file(
-        common.constants.cimple_snapshot_dir / "test-snapshot.json",
+        cimple.constants.cimple_snapshot_dir / "test-snapshot.json",
         contents=json.dumps(snapshot_data),
     )
 
@@ -85,14 +85,14 @@ def basic_cimple_store_fixture(fs: pyfakefs.fake_filesystem.FakeFilesystem) -> N
             _ = fs.add_real_file(
                 pkg_path,
                 read_only=False,
-                target_path=common.constants.cimple_pkg_dir / pkg_tarball_name,
+                target_path=cimple.constants.cimple_pkg_dir / pkg_tarball_name,
             )
 
     # Add orig tarballs
     with importlib.resources.path("tests", "data/orig") as orig_path:
         _ = fs.add_real_directory(
             orig_path,
-            target_path=common.constants.cimple_orig_dir,
+            target_path=cimple.constants.cimple_orig_dir,
             read_only=True,
         )
 
@@ -100,7 +100,7 @@ def basic_cimple_store_fixture(fs: pyfakefs.fake_filesystem.FakeFilesystem) -> N
     with importlib.resources.path("tests", "data/image") as image_path:
         _ = fs.add_real_directory(
             image_path,
-            target_path=common.constants.cimple_image_dir,
+            target_path=cimple.constants.cimple_image_dir,
             read_only=True,
         )
 
@@ -146,14 +146,14 @@ def cygwin_release_content_side_effect_fixture(
         _ = fs.add_real_directory(cygwin_data_root, target_path="/cygwin", read_only=True)
 
     def mock_cygwin_release_content(url: str):
-        assert url.startswith(common.constants.cygwin_pkg_url), (
+        assert url.startswith(cimple.constants.cygwin_pkg_url), (
             "Unexpected access to non-Cygwin URL"
         )
 
         print(f"Mocking Cygwin release content for URL: {url}")
 
         cygwin_data_root = pathlib.Path("/cygwin")
-        relative_path = url[len(common.constants.cygwin_pkg_url) :].lstrip("/")
+        relative_path = url[len(cimple.constants.cygwin_pkg_url) :].lstrip("/")
         mock_file_path = cygwin_data_root / relative_path
         print(f"Using local Cygwin data: {mock_file_path}")
 

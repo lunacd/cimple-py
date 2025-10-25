@@ -1,6 +1,6 @@
 import pytest
 
-from cimple.common.version import version_compare
+from cimple.version import version_compare
 
 
 @pytest.mark.parametrize(

@@ -1,6 +1,6 @@
 import pytest
 
-from cimple.common.str_interpolation import interpolate
+from cimple.str_interpolation import interpolate
 
 
 @pytest.mark.parametrize(

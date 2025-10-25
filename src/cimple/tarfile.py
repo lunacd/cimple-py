@@ -2,7 +2,7 @@ import stat
 import tarfile
 import typing
 
-import cimple.common.system
+import cimple.system
 
 if typing.TYPE_CHECKING:
     import collections.abc
@@ -11,7 +11,7 @@ if typing.TYPE_CHECKING:
 
 def writable_extract_filter(tarinfo: tarfile.TarInfo, dest_path: str) -> tarfile.TarInfo | None:
     # Colon is not a valid character in a path on Windows
-    if cimple.common.system.platform_name().startswith("windows-") and ":" in tarinfo.name:
+    if cimple.system.platform_name().startswith("windows-") and ":" in tarinfo.name:
         return None
 
     if tarinfo.isdir() or tarinfo.isreg():

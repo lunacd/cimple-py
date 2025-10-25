@@ -5,7 +5,8 @@ import tempfile
 import pydantic
 import requests
 
-from cimple import common
+import cimple.constants
+import cimple.hash
 
 
 def _parse_checksum_file(file_content: str) -> dict[str, str]:
@@ -29,8 +30,8 @@ def download_cygwin_file(url_path: str, target_path: pathlib.Path) -> pathlib.Pa
     file_name = url_path.split("/")[-1]
     file_dir = "/".join(url_path.rsplit("/")[:-1])
     output_path = target_path / file_name
-    checksum_file_url = f"{common.constants.cygwin_pkg_url}/{file_dir}/sha512.sum"
-    file_url = f"{common.constants.cygwin_pkg_url}/{url_path}"
+    checksum_file_url = f"{cimple.constants.cygwin_pkg_url}/{file_dir}/sha512.sum"
+    file_url = f"{cimple.constants.cygwin_pkg_url}/{url_path}"
 
     # Download checksum file
     checksum_res = requests.get(checksum_file_url)
@@ -46,7 +47,7 @@ def download_cygwin_file(url_path: str, target_path: pathlib.Path) -> pathlib.Pa
         _ = f.write(response.content)
 
     # Verify checksum
-    actual_hash = common.hash.hash_file(output_path, "sha512")
+    actual_hash = cimple.hash.hash_file(output_path, "sha512")
     if actual_hash != file_checksum:
         raise RuntimeError(
             f"Checksum mismatch for {file_name}: expected {file_checksum}, got {actual_hash}"

@@ -3,7 +3,7 @@ import unittest.mock
 
 import pytest
 
-from cimple import common
+import cimple.system
 from cimple.models import pkg as pkg_models
 from cimple.pkg import ops as pkg_ops
 from cimple.snapshot import core as snapshot_core
@@ -25,7 +25,7 @@ def test_build_pkg_custom_with_cimple_pi(cimple_pi: pathlib.Path, mocker: Mocker
     return_process = unittest.mock.Mock()
     return_process.returncode = 0
     run_command_mock = mocker.patch(
-        "cimple.pkg.ops.common.cmd.run_command", return_value=return_process
+        "cimple.pkg.ops.cimple.process.run_command", return_value=return_process
     )
     uut = pkg_ops.PkgOps()
 
@@ -46,7 +46,7 @@ def test_build_pkg_custom_with_cimple_pi(cimple_pi: pathlib.Path, mocker: Mocker
 
 @pytest.mark.usefixtures("basic_cimple_store")
 @pytest.mark.skipif(
-    not common.system.platform_name().startswith("windows"),
+    not cimple.system.platform_name().startswith("windows"),
     reason="Cygwin is only relevant on Windows",
 )
 def test_build_cygwin_pkg(

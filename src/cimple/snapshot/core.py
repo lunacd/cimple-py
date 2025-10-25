@@ -4,7 +4,7 @@ import typing
 
 import networkx as nx
 
-from cimple import common
+import cimple.constants
 from cimple.models import pkg as pkg_models
 from cimple.models import snapshot as snapshot_models
 
@@ -114,7 +114,7 @@ class CimpleSnapshot:
             changes=self.changes,
         )
 
-        snapshot_manifest = common.constants.cimple_snapshot_dir / f"{snapshot_name}.json"
+        snapshot_manifest = cimple.constants.cimple_snapshot_dir / f"{snapshot_name}.json"
         if snapshot_manifest.exists():
             raise RuntimeError(f"Snapshot {snapshot_name} already exists!")
 
@@ -240,7 +240,7 @@ def load_snapshot(name: str) -> CimpleSnapshot:
             changes=snapshot_models.SnapshotChanges(add=[], remove=[]),
         )
     else:
-        snapshot_path = common.constants.cimple_snapshot_dir / f"{name}.json"
+        snapshot_path = cimple.constants.cimple_snapshot_dir / f"{name}.json"
         with snapshot_path.open("r") as f:
             snapshot_data = snapshot_models.SnapshotModel.model_validate_json(f.read())
 

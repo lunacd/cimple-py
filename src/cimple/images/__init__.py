@@ -6,24 +6,25 @@ import typing
 
 import requests
 
-import cimple.common as common
+import cimple.constants
+import cimple.logging
+from cimple.images import ops
 
 # Re-exports
-from cimple.common.tarfile import writable_extract_filter
-from cimple.images import ops
+from cimple.tarfile import writable_extract_filter
 
 if typing.TYPE_CHECKING:
     import pathlib
 
 
 def get_image(image_name: str):
-    if not common.constants.cimple_image_dir.is_dir():
-        common.constants.cimple_image_dir.mkdir(parents=True)
+    if not cimple.constants.cimple_image_dir.is_dir():
+        cimple.constants.cimple_image_dir.mkdir(parents=True)
 
     image_file_name = f"{image_name}.tar.gz"
-    target_path = common.constants.cimple_image_dir / image_file_name
+    target_path = cimple.constants.cimple_image_dir / image_file_name
     if target_path.is_file():
-        common.logging.info("Using existing image %s", image_file_name)
+        cimple.logging.info("Using existing image %s", image_file_name)
         return
     url = f"https://cimple-pi.lunacd.com/image/{image_file_name}"
     r = requests.get(url, allow_redirects=True)
@@ -33,21 +34,21 @@ def get_image(image_name: str):
 
 
 def prepare_image(platform: str, arch: str, variant: str) -> pathlib.Path:
-    if not common.constants.cimple_image_dir.is_dir():
-        common.constants.cimple_image_dir.mkdir(parents=True)
+    if not cimple.constants.cimple_image_dir.is_dir():
+        cimple.constants.cimple_image_dir.mkdir(parents=True)
 
     image_name = f"{platform}-{variant}-{arch}"
-    target_path = common.constants.cimple_extracted_image_dir / image_name
+    target_path = cimple.constants.cimple_extracted_image_dir / image_name
 
     if target_path.is_dir():
-        common.logging.info("Using existing %s image", image_name)
+        cimple.logging.info("Using existing %s image", image_name)
     else:
-        common.logging.info("Downloading %s image", image_name)
+        cimple.logging.info("Downloading %s image", image_name)
         get_image(image_name)
 
-        common.logging.info("Extracting %s image", image_name)
+        cimple.logging.info("Extracting %s image", image_name)
         with tarfile.open(
-            str(common.constants.cimple_image_dir / f"{image_name}.tar.gz"),
+            str(cimple.constants.cimple_image_dir / f"{image_name}.tar.gz"),
             "r:gz",
         ) as tar:
             tar.extractall(path=target_path, filter=writable_extract_filter)
@@ -56,7 +57,7 @@ def prepare_image(platform: str, arch: str, variant: str) -> pathlib.Path:
 
 
 def clean_images():
-    if common.constants.cimple_image_dir.is_dir():
-        shutil.rmtree(common.constants.cimple_image_dir)
-    if common.constants.cimple_extracted_image_dir.is_dir():
-        shutil.rmtree(common.constants.cimple_extracted_image_dir)
+    if cimple.constants.cimple_image_dir.is_dir():
+        shutil.rmtree(cimple.constants.cimple_image_dir)
+    if cimple.constants.cimple_extracted_image_dir.is_dir():
+        shutil.rmtree(cimple.constants.cimple_extracted_image_dir)
