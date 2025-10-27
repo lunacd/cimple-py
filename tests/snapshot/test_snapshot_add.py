@@ -89,7 +89,7 @@ def test_snapshot_add_simple(
     make_bin_pkg = new_snapshot.pkg_map[pkg_models.bin_pkg_id("make")].root
     assert snapshot_models.snapshot_pkg_is_bin(make_bin_pkg)
     sha256 = make_bin_pkg.sha256
-    assert (cimple.constants.cimple_pkg_dir / f"make-4.4.1-2-{sha256}.tar.xz").exists()
+    assert (cimple.constants.cimple_pkg_dir / f"make-{sha256}.tar.xz").exists()
 
     # THEN: the dependencies are correct
     assert make_bin_pkg.depends == ["bin:cygwin", "bin:libguile3.0_1", "bin:libintl8"]
@@ -141,7 +141,7 @@ def test_snapshot_add_multiple_packages(
     make_bin_pkg = new_snapshot.pkg_map[pkg_models.bin_pkg_id("make")].root
     assert snapshot_models.snapshot_pkg_is_bin(make_bin_pkg)
     sha256 = make_bin_pkg.sha256
-    assert (cimple.constants.cimple_pkg_dir / f"make-4.4.1-2-{sha256}.tar.xz").exists()
+    assert (cimple.constants.cimple_pkg_dir / f"make-{sha256}.tar.xz").exists()
 
     # THEN: the dependencies are correct
     assert make_bin_pkg.depends == ["bin:cygwin", "bin:libguile3.0_1", "bin:libintl8"]
