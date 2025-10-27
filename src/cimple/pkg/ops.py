@@ -90,7 +90,10 @@ class PkgOps:
         # Prepare chroot image
         cimple.logging.info("Preparing image")
         # TODO: support multiple platforms and arch
-        image_path = images.prepare_image("windows", "x86_64", config.input.image_type)
+        if config.input.image_type is None:
+            image_path = None
+        else:
+            image_path = images.prepare_image("windows", "x86_64", config.input.image_type)
 
         # Ensure needed directories exist
         cimple.util.ensure_path(cimple.constants.cimple_orig_dir)
@@ -172,7 +175,7 @@ class PkgOps:
         cimple_builtin_variables: dict[str, str] = {
             "cimple_output_dir": output_dir.as_posix(),
             "cimple_build_dir": build_dir.as_posix(),
-            "cimple_image_dir": image_path.as_posix(),
+            "cimple_image_dir": "" if image_path is None else image_path.as_posix(),
             "cimple_deps_dir": deps_dir.as_posix(),
             "cimple_parallelism": str(parallel),
         }
@@ -272,6 +275,8 @@ class PkgOps:
                 return self._build_cygwin_pkg(
                     typing.cast("pkg_config_models.PkgConfigCygwin", config.root),
                 )
+            case _:
+                raise RuntimeError(f"Unknown package type {config.root.pkg_type}")
 
     def resolve_dependencies(
         self, package_id: pkg_models.SrcPkgId, package_version: str, *, pi_path: pathlib.Path

@@ -31,7 +31,7 @@ class PkgConfigInputSection(pydantic.BaseModel):
     source_version: str
     tarball_root_dir: str | None = None
     tarball_compression: typing.Literal["gz", "xz"] = "gz"
-    image_type: str = "default"
+    image_type: str | None = None
     patches: list[str] = []
 
 
