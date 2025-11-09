@@ -17,7 +17,7 @@ def merge_env(base: dict[str, str], override: dict[str, str]) -> dict[str, str]:
 def baseline_env() -> dict[str, str]:
     # TODO: support linux and macos
     # TODO: move this to image.json
-    tmpdir = os.environ["TMP"]
+    tmpdir = os.environ.get("TMP", "/tmp")
     baseline_env = {"TMP": tmpdir, "TEMP": tmpdir, "TMPDIR": tmpdir, "SOURCE_DATE_EPOCH": "0"}
     if cimple.system.is_windows():
         baseline_env.update(get_msvc_envs())
