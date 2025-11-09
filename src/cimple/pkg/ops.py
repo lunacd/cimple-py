@@ -28,6 +28,12 @@ class PackageDependencies:
     depends: dict[pkg_models.BinPkgId, list[pkg_models.BinPkgId]]
 
 
+@dataclasses.dataclass
+class PackageBuildOptions:
+    parallel: int = 1
+    extra_paths: list[pathlib.Path] = dataclasses.field(default_factory=list)
+
+
 class PkgOps:
     def __init__(self):
         self.cygwin_release: None | pkg_cygwin.CygwinRelease = None
@@ -58,8 +64,8 @@ class PkgOps:
         for dep in transitive_bin_deps:
             self.install_pkg(target_path, dep, cimple_snapshot)
 
+    @staticmethod
     def install_pkg(
-        self,
         target_path: pathlib.Path,
         pkg_id: pkg_models.BinPkgId,
         cimple_snapshot: snapshot_core.CimpleSnapshot,
@@ -85,7 +91,7 @@ class PkgOps:
         *,
         pi_path: pathlib.Path,
         cimple_snapshot: snapshot_core.CimpleSnapshot,
-        parallel: int,
+        build_options: PackageBuildOptions,
     ) -> pathlib.Path:
         # Prepare chroot image
         cimple.logging.info("Preparing image")
@@ -177,7 +183,7 @@ class PkgOps:
             "cimple_build_dir": build_dir.as_posix(),
             "cimple_image_dir": "" if image_path is None else image_path.as_posix(),
             "cimple_deps_dir": deps_dir.as_posix(),
-            "cimple_parallelism": str(parallel),
+            "cimple_parallelism": str(build_options.parallel),
         }
         # TODO: remove hard-coded platform and arch
         cimple_builtin_variables.update(
@@ -215,6 +221,7 @@ class PkgOps:
                 dependency_path=deps_dir,
                 cwd=cwd,
                 env=interpolated_env,
+                extra_paths=build_options.extra_paths,
             )
             if process.returncode != 0:
                 raise RuntimeError(
@@ -259,7 +266,7 @@ class PkgOps:
         *,
         pi_path: pathlib.Path,
         cimple_snapshot: snapshot_core.CimpleSnapshot,
-        parallel: int,
+        build_options: PackageBuildOptions,
     ) -> pathlib.Path:
         config = pkg_config_models.load_pkg_config(pi_path, package_id, package_version)
 
@@ -269,7 +276,7 @@ class PkgOps:
                     typing.cast("pkg_config_models.PkgConfigCustom", config.root),
                     cimple_snapshot=cimple_snapshot,
                     pi_path=pi_path,
-                    parallel=parallel,
+                    build_options=build_options,
                 )
             case "cygwin":
                 return self._build_cygwin_pkg(

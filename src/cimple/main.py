@@ -29,8 +29,8 @@ def build_pkg(
         pkg_models.src_pkg_id(pkg_name),
         pkg_version,
         pi_path=pathlib.Path(pkg_index_path),
-        parallel=parallel,
         cimple_snapshot=snapshot_map,
+        build_options=pkg_ops.PackageBuildOptions(parallel=parallel),
     )
 
 

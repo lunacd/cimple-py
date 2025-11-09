@@ -75,6 +75,7 @@ def test_snapshot_change(mocker):
         ],
         pkg_index_path=pkg_index_path,
         parallel=2,
+        extra_paths=[],
     )
 
 

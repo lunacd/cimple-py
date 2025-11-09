@@ -3,7 +3,7 @@ import tempfile
 
 import pytest
 
-from cimple import pkg
+import cimple.pkg.cygwin
 
 
 def test_download_cygwin_file(cygwin_release_content_side_effect, mocker):
@@ -12,7 +12,7 @@ def test_download_cygwin_file(cygwin_release_content_side_effect, mocker):
     url_path = "x86_64/setup.xz"
     with tempfile.TemporaryDirectory() as tmpdir:
         # WHEN: Downloading the Cygwin file
-        downloaded_file = pkg.cygwin.download_cygwin_file(url_path, pathlib.Path(tmpdir))
+        downloaded_file = cimple.pkg.cygwin.download_cygwin_file(url_path, pathlib.Path(tmpdir))
 
         # THEN: The file should be downloaded and exist at the target path
         assert downloaded_file.exists(), f"Downloaded file does not exist at {downloaded_file}"
@@ -220,7 +220,7 @@ def test_parse_release_simple(
     release_content, expected_package, expected_version, expected_install, expected_depends
 ):
     # GIVEN: A Cygwin release content
-    cygwin_release = pkg.cygwin.CygwinRelease()
+    cygwin_release = cimple.pkg.cygwin.CygwinRelease()
     assert not cygwin_release.initialized, "CygwinRelease should not be initialized yet"
 
     # WHEN: Parsing the release content
@@ -243,7 +243,7 @@ def test_parse_cygwin_release_full(
     mocker.patch("cimple.pkg.cygwin.requests.get", side_effect=cygwin_release_content_side_effect)
 
     # WHEN: Parsing the Cygwin release for the package
-    cygwin_release = pkg.cygwin.CygwinRelease()
+    cygwin_release = cimple.pkg.cygwin.CygwinRelease()
     assert cygwin_release.initialized is False, "CygwinRelease should not be initialized yet"
     cygwin_release.parse_release_from_repo()
 
@@ -303,7 +303,7 @@ def test_parse_cygwin_release_test_versions_are_skipped(cygwin_release_content_s
     mocker.patch("cimple.pkg.cygwin.requests.get", side_effect=cygwin_release_content_side_effect)
 
     # WHEN: Parsing the Cygwin release for the package
-    cygwin_release = pkg.cygwin.CygwinRelease()
+    cygwin_release = cimple.pkg.cygwin.CygwinRelease()
     assert cygwin_release.initialized is False, "CygwinRelease should not be initialized yet"
     cygwin_release.parse_release_from_repo()
 

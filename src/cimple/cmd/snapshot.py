@@ -18,7 +18,13 @@ def change(
     add: typing.Annotated[list[str], typer.Option()],
     pkg_index: typing.Annotated[str, typer.Option()],
     parallel: typing.Annotated[int, typer.Option(help="Number of parallel jobs")] = 1,
+    extra_paths: typing.Annotated[
+        list[pathlib.Path] | None, typer.Option("--dangerously-add-extra-bin-path")
+    ] = None,
 ):
+    if extra_paths is None:
+        extra_paths = []
+
     def parse_versioned_pkg(pkg_str: str) -> snapshot_ops.VersionedSourcePackage:
         segments = pkg_str.split("=")
         if len(segments) != 2:
@@ -42,6 +48,7 @@ def change(
         packages=add_pkgs,
         pkg_index_path=pathlib.Path(pkg_index),
         parallel=parallel,
+        extra_paths=extra_paths,
     )
     snapshot_data.dump_snapshot()
 

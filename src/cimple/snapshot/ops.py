@@ -6,6 +6,7 @@ import typing
 
 import pydantic
 
+import cimple.pkg.ops
 from cimple import constants, logging, util
 from cimple import hash as cimple_hash
 from cimple import tarfile as cimple_tarfile
@@ -26,7 +27,11 @@ def add(
     packages: list[VersionedSourcePackage],
     pkg_index_path: pathlib.Path,
     parallel: int,
+    extra_paths: list[pathlib.Path] | None = None,
 ) -> snapshot_core.CimpleSnapshot:
+    if extra_paths is None:
+        extra_paths = []
+
     # Ensure needed paths exist
     util.ensure_path(constants.cimple_snapshot_dir)
     util.ensure_path(constants.cimple_pkg_dir)
@@ -82,8 +87,10 @@ def add(
             package.name,
             package.version,
             pi_path=pkg_index_path,
-            parallel=parallel,
             cimple_snapshot=new_snapshot,
+            build_options=cimple.pkg.ops.PackageBuildOptions(
+                parallel=parallel, extra_paths=extra_paths
+            ),
         )
 
         # Tar it up and add to snapshot

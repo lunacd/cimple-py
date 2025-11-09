@@ -1,3 +1,4 @@
+import pathlib
 import typing
 import unittest.mock
 
@@ -9,8 +10,6 @@ from cimple.pkg import ops as pkg_ops
 from cimple.snapshot import core as snapshot_core
 
 if typing.TYPE_CHECKING:
-    import pathlib
-
     from pytest_mock import MockerFixture
 
     import tests.conftest
@@ -35,12 +34,15 @@ def test_build_pkg_custom_with_cimple_pi(cimple_pi: pathlib.Path, mocker: Mocker
         package_version,
         pi_path=cimple_pi,
         cimple_snapshot=cimple_snapshot,
-        parallel=2,
+        build_options=pkg_ops.PackageBuildOptions(
+            parallel=2, extra_paths=[pathlib.Path("/extra/path")]
+        ),
     )
 
     # THEN: the expected build commands are called
     run_command_mock.assert_called_once()
     assert run_command_mock.call_args[0][0] == ["abc", "abc"]
+    assert run_command_mock.call_args[1]["extra_paths"] == [pathlib.Path("/extra/path")]
     assert result.is_dir()
 
 
@@ -69,7 +71,7 @@ def test_build_cygwin_pkg(
         "4.4.1-2",
         pi_path=cimple_pi,
         cimple_snapshot=cimple_snapshot,
-        parallel=8,
+        build_options=pkg_ops.PackageBuildOptions(parallel=2),
     )
 
     # THEN:

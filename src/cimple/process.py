@@ -19,12 +19,13 @@ def baseline_env() -> dict[str, str]:
 def construct_path_env_var(
     image_path: pathlib.Path | None,
     dependency_path: pathlib.Path | None,
+    extra_paths: list[pathlib.Path],
 ):
     """
     Build a PATH environment variable from the given image path and/or dependency path.
     """
 
-    path_arr: list[str] = []
+    path_arr: list[str] = [p.as_posix() for p in extra_paths]
     if dependency_path is not None:
         path_arr.append(str(dependency_path / "bin"))
         path_arr.append(str(dependency_path / "usr" / "bin"))
@@ -40,12 +41,16 @@ def run_command(
     dependency_path: pathlib.Path | None,
     cwd: pathlib.Path,
     env: dict[str, str] | None,
+    extra_paths: list[pathlib.Path] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """
     Run a command within the constructed image and dependency tree.
     """
 
-    path = construct_path_env_var(image_path, dependency_path)
+    if extra_paths is None:
+        extra_paths = []
+
+    path = construct_path_env_var(image_path, dependency_path, extra_paths)
 
     cmd = shutil.which(args[0], path=path)
     if cmd is None:
