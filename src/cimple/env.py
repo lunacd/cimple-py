@@ -1,4 +1,5 @@
 import os
+import pathlib
 import subprocess
 
 import cimple.system
@@ -24,11 +25,31 @@ def baseline_env() -> dict[str, str]:
     return baseline_env
 
 
+def find_msvc() -> pathlib.Path | None:
+    """
+    Find the MSVC installation path.
+    """
+    possible_paths = [
+        "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise",
+        "C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional",
+        "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community",
+    ]
+
+    for path_str in possible_paths:
+        path = pathlib.Path(path_str)
+        if path.is_dir():
+            return path
+
+    return None
+
+
 def get_msvc_envs() -> dict[str, str]:
     """
     Get MSVC environment variables from the current environment.
     """
-    msvc_path = "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community"
+    msvc_path = find_msvc()
+    if msvc_path is None:
+        raise RuntimeError("MSVC installation not found")
 
     # Run the Visual Studio Developer PowerShell to get the environment variables
     mscv_dev_shell_command = [
