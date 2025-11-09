@@ -56,10 +56,17 @@ def get_msvc_envs() -> dict[str, str]:
 
     # Copy over the relevant environment variables
     envs: dict[str, str] = {}
-    envs["DevEnvDir"] = raw_envs["DevEnvDir"]
+
+    assert "INCLUDE" in raw_envs, "INCLUDE not found in MSVC environment"
     envs["INCLUDE"] = raw_envs["INCLUDE"]
+
+    assert "EXTERNAL_INCLUDE" in raw_envs, "EXTERNAL_INCLUDE not found in MSVC environment"
     envs["EXTERNAL_INCLUDE"] = raw_envs["EXTERNAL_INCLUDE"]
+
+    assert "LIB" in raw_envs, "LIB not found in MSVC environment"
     envs["LIB"] = raw_envs["LIB"]
+
+    assert "LIBPATH" in raw_envs, "LIBPATH not found in MSVC environment"
     envs["LIBPATH"] = raw_envs["LIBPATH"]
 
     return envs
