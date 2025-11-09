@@ -3,17 +3,11 @@ import shutil
 import subprocess
 import typing
 
+import cimple.env
 import cimple.logging
 
 if typing.TYPE_CHECKING:
     import pathlib
-
-
-def baseline_env() -> dict[str, str]:
-    # TODO: support linux and macos
-    # TODO: move this to image.json
-    tmpdir = os.environ["TMP"]
-    return {"TMP": tmpdir, "TEMP": tmpdir, "TMPDIR": tmpdir, "SOURCE_DATE_EPOCH": "0"}
 
 
 def construct_path_env_var(
@@ -60,7 +54,7 @@ def run_command(
 
     if env is None:
         env = {}
-    env.update(baseline_env())
+    env.update(cimple.env.baseline_env())
     # TODO: if PATH is specified in env, merge with it.
     env.update({"PATH": path})
 

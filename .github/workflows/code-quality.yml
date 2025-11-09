@@ -24,6 +24,13 @@ jobs:
         run: |
           uv sync --all-extras
 
+      # Install MSVC on Windows
+      # This is used to test parsing MSVC envvars
+      - uses: TheMrMilchmann/setup-msvc-dev@v4
+        with:
+          arch: x64
+          toolset: 17.XX
+
       - name: Run tests
         run: |
           uv run pytest --cov --cov-branch --cov-report=xml --junitxml=junit.xml
