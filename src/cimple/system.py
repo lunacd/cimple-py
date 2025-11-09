@@ -25,11 +25,18 @@ def platform_name() -> str:
     return f"{os_name}-{arch}"
 
 
+def is_windows() -> bool:
+    """
+    Returns True if the current platform is Windows.
+    """
+    return platform_name().startswith("windows")
+
+
 def to_cygwin_path(path: pathlib.Path) -> pathlib.Path:
     """
     Convert a Windows path to a Cygwin-compatible path.
     """
-    if not platform_name().startswith("windows"):
+    if not is_windows():
         return path
 
     first_segment = path.parts[0]
