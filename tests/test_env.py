@@ -15,3 +15,11 @@ def test_msvc_env():
     # THEN: the expected environment variables are present
     assert "INCLUDE" in env
     assert "LIB" in env
+
+
+def test_baseline_env():
+    # WHEN: getting the baseline environment variables
+    env = cimple.env.get_baseline_envs()
+
+    # THEN: the expected environment variables are present
+    assert "TMP" in env
