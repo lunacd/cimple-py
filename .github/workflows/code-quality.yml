@@ -26,7 +26,9 @@ jobs:
 
       # Install MSVC on Windows
       # This is used to test parsing MSVC envvars
-      - uses: TheMrMilchmann/setup-msvc-dev@v4
+      - name: Setup MSVC
+        uses: TheMrMilchmann/setup-msvc-dev@v4
+        if: matrix.os == 'windows-latest'
         with:
           arch: x64
           toolset: 17.XX
