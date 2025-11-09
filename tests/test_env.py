@@ -19,7 +19,7 @@ def test_msvc_env():
 
 def test_baseline_env():
     # WHEN: getting the baseline environment variables
-    env = cimple.env.get_baseline_envs()
+    env = cimple.env.baseline_env()
 
     # THEN: the expected environment variables are present
     assert "TMP" in env
