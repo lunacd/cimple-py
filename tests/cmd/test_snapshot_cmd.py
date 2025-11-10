@@ -70,8 +70,8 @@ def test_snapshot_change(mocker):
     add_mock.assert_called_once_with(
         origin_snapshot=dummy_snapshot_value,
         packages=[
-            snapshot_ops.VersionedSourcePackage(name=pkg_models.src_pkg_id("pkg1"), version="1.0"),
-            snapshot_ops.VersionedSourcePackage(name=pkg_models.src_pkg_id("pkg2"), version="2.0"),
+            snapshot_ops.VersionedSourcePackage(id=pkg_models.SrcPkgId("pkg1"), version="1.0"),
+            snapshot_ops.VersionedSourcePackage(id=pkg_models.SrcPkgId("pkg2"), version="2.0"),
         ],
         pkg_index_path=pkg_index_path,
         parallel=2,
@@ -109,7 +109,7 @@ def test_snapshot_reproduce(mocker):
     # THEN: add is called to reproduce the target snapshot
     add_mock.assert_called_once_with(
         root_snapshot_value,
-        [snapshot_ops.VersionedSourcePackage(name=pkg_models.src_pkg_id("pkg1"), version="1.0")],
+        [snapshot_ops.VersionedSourcePackage(id=pkg_models.SrcPkgId("pkg1"), version="1.0")],
         pkg_index_path=pkg_index_path,
         parallel=1,
     )

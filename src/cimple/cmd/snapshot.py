@@ -33,7 +33,7 @@ def change(
             )
 
         return snapshot_ops.VersionedSourcePackage(
-            name=pkg_models.src_pkg_id(segments[0]), version=segments[1]
+            id=pkg_models.SrcPkgId(segments[0]), version=segments[1]
         )
 
     add_pkgs = [parse_versioned_pkg(pkg_str) for pkg_str in add] if len(add) > 0 else []
@@ -63,10 +63,9 @@ def reproduce(
     snapshot_to_reproduce = snapshot_core.load_snapshot(reproduce_snapshot_name)
 
     pkgs_to_add = [
-        snapshot_ops.VersionedSourcePackage(name=package_id, version=package_data.root.version)
+        snapshot_ops.VersionedSourcePackage(id=package_id, version=package_data.root.version)
         for package_id, package_data in snapshot_to_reproduce.pkg_map.items()
-        if pkg_models.pkg_is_src(package_id)
-        and snapshot_models.snapshot_pkg_is_src(package_data.root)
+        if package_id.type == "src" and snapshot_models.snapshot_pkg_is_src(package_data.root)
     ]
 
     result_snapshot = snapshot_ops.add(

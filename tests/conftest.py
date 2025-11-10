@@ -172,7 +172,7 @@ class Helpers:
     ) -> snapshot_core.CimpleSnapshot:
         snapshot = snapshot_core.load_snapshot("root")
         for bin_pkg in bin_packages:
-            src_pkg_id = pkg_models.src_pkg_id(pkg_models.unqualified_pkg_name(bin_pkg))
+            src_pkg_id = pkg_models.SrcPkgId(bin_pkg.name)
             snapshot.add_src_pkg(src_pkg_id, "0", [])
             snapshot.add_bin_pkg(bin_pkg, src_pkg_id, "0", [])
         return snapshot

@@ -74,10 +74,6 @@ class CimpleSnapshot:
         self.changes = snapshot_data.changes
 
     @staticmethod
-    def _assert_node_type(node_set: set[typing.Any]) -> typing.TypeGuard[set[pkg_models.PkgId]]:
-        return all(pkg_models.is_pkg_id(node) for node in node_set)
-
-    @staticmethod
     def create_from(origin_snapshot: CimpleSnapshot) -> CimpleSnapshot:
         new_snapshot = copy.deepcopy(origin_snapshot)
         new_snapshot.changes = []
@@ -90,16 +86,14 @@ class CimpleSnapshot:
         Get all binary packages that are required during the build a source package.
         """
         descendents = nx.descendants(self.graph, src_pkg)
-        self._assert_node_type(descendents)
-        return list(filter(lambda item: pkg_models.pkg_is_bin(item), descendents))
+        return list(filter(lambda item: item.type == "bin", descendents))
 
     def runtime_depends_of(self, bin_pkg: pkg_models.BinPkgId) -> list[pkg_models.BinPkgId]:
         """
         Get all binary packages that are required at runtime by a binary package.
         """
         descendents = nx.descendants(self.graph, bin_pkg)
-        self._assert_node_type(descendents)
-        return list(filter(lambda item: pkg_models.pkg_is_bin(item), descendents))
+        return list(filter(lambda item: item.type == "bin", descendents))
 
     def dump_snapshot(self):
         """
@@ -142,7 +136,7 @@ class CimpleSnapshot:
         # Add package to snapshot map
         new_snapshot_pkg = snapshot_models.SnapshotPkg(
             root=snapshot_models.SnapshotSrcPkg(
-                name=pkg_models.unqualified_pkg_name(pkg_id),
+                name=pkg_id.name,
                 version=pkg_version,
                 build_depends=build_depends,
                 binary_packages=[],
@@ -176,7 +170,7 @@ class CimpleSnapshot:
         # Add package to snapshot map
         new_snapshot_pkg = snapshot_models.SnapshotPkg(
             root=snapshot_models.SnapshotBinPkg.model_construct(
-                name=pkg_models.unqualified_pkg_name(pkg_id),
+                name=pkg_id.name,
                 sha256=pkg_sha256,
                 compression_method="xz",
                 depends=depends,

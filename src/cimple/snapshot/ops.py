@@ -18,7 +18,7 @@ if typing.TYPE_CHECKING:
 
 
 class VersionedSourcePackage(pydantic.BaseModel):
-    name: pkg_models.SrcPkgId
+    id: pkg_models.SrcPkgId
     version: str
 
 
@@ -50,41 +50,42 @@ def add(
     binaries_will_built: set[pkg_models.BinPkgId] = set()
     for package in packages_to_build:
         dependency_data = pkg_processor.resolve_dependencies(
-            package.name, package.version, pi_path=pkg_index_path
+            package.id, package.version, pi_path=pkg_index_path
         )
-        package_dependencies[package.name] = dependency_data
+        package_dependencies[package.id] = dependency_data
         for bin_pkg in dependency_data.depends:
             binaries_will_built.add(bin_pkg)
     for package in packages_to_build:
         # Check build and runtime dependencies are available in the snapshot
-        for dep in package_dependencies[package.name].build_depends:
+        for dep in package_dependencies[package.id].build_depends:
             if dep not in new_snapshot.pkg_map:
                 raise RuntimeError(
-                    f"Build dependency {dep} for package {package.name} not found in snapshot"
+                    f"Build dependency {dep} for package {package.id.name} not found in snapshot"
                 )
-        for bin_dep_list in package_dependencies[package.name].depends.values():
+        for bin_dep_list in package_dependencies[package.id].depends.values():
             for dep in bin_dep_list:
                 # Binary dependencies can be either in the snapshot or produced by the package being
                 # built
                 if dep not in new_snapshot.pkg_map and dep not in binaries_will_built:
                     raise RuntimeError(
-                        f"Binary dependency {dep} for package {package.name} not found in snapshot"
+                        f"Binary dependency {dep.name} for package {package.id.name}"
+                        " not found in snapshot"
                     )
 
     # Build package
     for package in packages_to_build:
-        logging.info("Building %s-%s", package.name, package.version)
+        logging.info("Building %s-%s", package.id, package.version)
 
         # Add package to snapshot
         new_snapshot.add_src_pkg(
-            pkg_id=package.name,
+            pkg_id=package.id,
             pkg_version=package.version,
-            build_depends=package_dependencies[package.name].build_depends,
+            build_depends=package_dependencies[package.id].build_depends,
         )
 
         # Build package
         output_path = pkg_processor.build_pkg(
-            package.name,
+            package.id,
             package.version,
             pi_path=pkg_index_path,
             cimple_snapshot=new_snapshot,
@@ -103,7 +104,7 @@ def add(
 
             # Move tarball to pkg store
             tar_hash = cimple_hash.hash_file(tar_path, "sha256")
-            new_file_name = f"{(pkg_models.unqualified_pkg_name(package.name))}-{tar_hash}.tar.xz"
+            new_file_name = f"{package.id.name}-{tar_hash}.tar.xz"
             new_file_path = constants.cimple_pkg_dir / new_file_name
             if new_file_path.exists():
                 logging.info("Reusing %s", new_file_name)
@@ -111,12 +112,12 @@ def add(
                 _ = tar_path.rename(new_file_path)
 
         # TODO: this needs to be repeated for each binary package
-        bin_pkg_id = pkg_models.bin_pkg_id(pkg_models.unqualified_pkg_name(package.name))
+        bin_pkg_id = pkg_models.BinPkgId(package.id.name)
         new_snapshot.add_bin_pkg(
             pkg_id=bin_pkg_id,
-            src_pkg=package.name,
+            src_pkg=package.id,
             pkg_sha256=tar_hash,
-            depends=package_dependencies[package.name].depends[bin_pkg_id],
+            depends=package_dependencies[package.id].depends[bin_pkg_id],
         )
 
     return new_snapshot

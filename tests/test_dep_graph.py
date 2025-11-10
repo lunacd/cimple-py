@@ -10,7 +10,8 @@ def test_get_build_depends():
     cimple_snapshot = snapshot_core.load_snapshot("test-snapshot")
 
     # When: getting the build dependencies for a package
-    build_deps = cimple_snapshot.build_depends_of(pkg_models.src_pkg_id("pkg1"))
+    build_deps = cimple_snapshot.build_depends_of(pkg_models.SrcPkgId("pkg1"))
 
     # Then: returns the correct build dependencies, direct and transitive
-    assert sorted(build_deps) == ["bin:pkg2-bin", "bin:pkg3-bin"]
+    assert all(d.type == "bin" for d in build_deps)
+    assert sorted([d.name for d in build_deps]) == ["pkg2-bin", "pkg3-bin"]
