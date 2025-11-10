@@ -31,18 +31,6 @@ class BinPkgId:
 PkgId = SrcPkgId | BinPkgId
 
 
-# def pkg_is_src(pkg_str: PkgId) -> typing.TypeGuard[SrcPkgId]:
-#     return pkg_str.type == "src"
-#
-#
-# def pkg_is_bin(pkg_str: PkgId) -> typing.TypeGuard[BinPkgId]:
-#     return pkg_str.startswith("bin:")
-
-
-# def is_pkg_id(obj: typing.Any) -> typing.TypeGuard[PkgId]:
-#     return isinstance(obj, str) and (obj.startswith("src:") or obj.startswith("bin:"))
-
-
 def bin_pkg_id_list_validator(input: list[str]) -> list[typing.Any]:
     return [
         {
