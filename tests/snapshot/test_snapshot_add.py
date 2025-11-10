@@ -34,13 +34,13 @@ def test_snapshot_add_unresolvable_dep(
     # THEN: an exception is raised because cygwin is not in the snapshot
     with pytest.raises(
         RuntimeError,
-        match="Binary dependency bin:cygwin for package src:make not found in snapshot",
+        match="Binary dependency cygwin for package make not found in snapshot",
     ):
         _ = snapshot_ops.add(
             root_snapshot,
             [
                 snapshot_ops.VersionedSourcePackage(
-                    name=pkg_models.src_pkg_id("make"), version="4.4.1-2"
+                    id=pkg_models.SrcPkgId("make"), version="4.4.1-2"
                 )
             ],
             cimple_pi,
@@ -63,36 +63,37 @@ def test_snapshot_add_simple(
     )
     snapshot = helpers.mock_cimple_snapshot(
         [
-            pkg_models.bin_pkg_id("cygwin"),
-            pkg_models.bin_pkg_id("libguile3.0_1"),
-            pkg_models.bin_pkg_id("libintl8"),
+            pkg_models.BinPkgId("cygwin"),
+            pkg_models.BinPkgId("libguile3.0_1"),
+            pkg_models.BinPkgId("libintl8"),
         ]
     )
 
     # WHEN: adding a package to the snapshot
     new_snapshot = snapshot_ops.add(
         snapshot,
-        [
-            snapshot_ops.VersionedSourcePackage(
-                name=pkg_models.src_pkg_id("make"), version="4.4.1-2"
-            )
-        ],
+        [snapshot_ops.VersionedSourcePackage(id=pkg_models.SrcPkgId("make"), version="4.4.1-2")],
         cimple_pi,
         parallel=1,
     )
 
     # THEN: the package should be in the snapshot
-    assert pkg_models.src_pkg_id("make") in new_snapshot.pkg_map
-    assert pkg_models.bin_pkg_id("make") in new_snapshot.pkg_map
+    assert pkg_models.SrcPkgId("make") in new_snapshot.pkg_map
+    assert pkg_models.BinPkgId("make") in new_snapshot.pkg_map
 
     # THEN: pkg exists in the pkg store
-    make_bin_pkg = new_snapshot.pkg_map[pkg_models.bin_pkg_id("make")].root
+    make_bin_pkg = new_snapshot.pkg_map[pkg_models.BinPkgId("make")].root
     assert snapshot_models.snapshot_pkg_is_bin(make_bin_pkg)
     sha256 = make_bin_pkg.sha256
     assert (cimple.constants.cimple_pkg_dir / f"make-{sha256}.tar.xz").exists()
 
     # THEN: the dependencies are correct
-    assert make_bin_pkg.depends == ["bin:cygwin", "bin:libguile3.0_1", "bin:libintl8"]
+    assert all(d.type == "bin" for d in make_bin_pkg.depends)
+    assert sorted([d.name for d in make_bin_pkg.depends]) == [
+        "cygwin",
+        "libguile3.0_1",
+        "libintl8",
+    ]
 
 
 @pytest.mark.usefixtures("basic_cimple_store")
@@ -110,9 +111,9 @@ def test_snapshot_add_multiple_packages(
     )
     snapshot = helpers.mock_cimple_snapshot(
         [
-            pkg_models.bin_pkg_id("libguile3.0_1"),
-            pkg_models.bin_pkg_id("cygwin"),
-            pkg_models.bin_pkg_id("libiconv2"),
+            pkg_models.BinPkgId("libguile3.0_1"),
+            pkg_models.BinPkgId("cygwin"),
+            pkg_models.BinPkgId("libiconv2"),
         ]
     )
 
@@ -122,11 +123,9 @@ def test_snapshot_add_multiple_packages(
     new_snapshot = snapshot_ops.add(
         snapshot,
         [
+            snapshot_ops.VersionedSourcePackage(id=pkg_models.SrcPkgId("make"), version="4.4.1-2"),
             snapshot_ops.VersionedSourcePackage(
-                name=pkg_models.src_pkg_id("make"), version="4.4.1-2"
-            ),
-            snapshot_ops.VersionedSourcePackage(
-                name=pkg_models.src_pkg_id("libintl8"), version="0.22.5-1"
+                id=pkg_models.SrcPkgId("libintl8"), version="0.22.5-1"
             ),
         ],
         cimple_pi,
@@ -134,14 +133,19 @@ def test_snapshot_add_multiple_packages(
     )
 
     # THEN: the package should be in the snapshot
-    assert pkg_models.src_pkg_id("make") in new_snapshot.pkg_map
-    assert pkg_models.bin_pkg_id("make") in new_snapshot.pkg_map
+    assert pkg_models.SrcPkgId("make") in new_snapshot.pkg_map
+    assert pkg_models.BinPkgId("make") in new_snapshot.pkg_map
 
     # THEN: pkg exists in the pkg store
-    make_bin_pkg = new_snapshot.pkg_map[pkg_models.bin_pkg_id("make")].root
+    make_bin_pkg = new_snapshot.pkg_map[pkg_models.BinPkgId("make")].root
     assert snapshot_models.snapshot_pkg_is_bin(make_bin_pkg)
     sha256 = make_bin_pkg.sha256
     assert (cimple.constants.cimple_pkg_dir / f"make-{sha256}.tar.xz").exists()
 
     # THEN: the dependencies are correct
-    assert make_bin_pkg.depends == ["bin:cygwin", "bin:libguile3.0_1", "bin:libintl8"]
+    assert all(d.type == "bin" for d in make_bin_pkg.depends)
+    assert sorted([d.name for d in make_bin_pkg.depends]) == [
+        "cygwin",
+        "libguile3.0_1",
+        "libintl8",
+    ]

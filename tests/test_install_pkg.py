@@ -11,7 +11,7 @@ from cimple.pkg import ops as pkg_ops
 def test_install_single_pkg():
     # Given: a basic snapshot with binary packages
     cimple_snapshot = snapshot_core.load_snapshot("test-snapshot")
-    pkg1 = pkg_models.bin_pkg_id("pkg1-bin")
+    pkg1 = pkg_models.BinPkgId("pkg1-bin")
     uut = pkg_ops.PkgOps()
 
     # When: installing a single package
@@ -27,7 +27,7 @@ def test_install_single_pkg():
 def test_install_pkg_with_dependencies():
     # Given: a basic snapshot with binary packages
     cimple_snapshot = snapshot_core.load_snapshot("test-snapshot")
-    pkg2 = pkg_models.bin_pkg_id("pkg2-bin")
+    pkg2 = pkg_models.BinPkgId("pkg2-bin")
     uut = pkg_ops.PkgOps()
 
     # When: installing a package with dependencies

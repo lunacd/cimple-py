@@ -291,7 +291,10 @@ class PkgOps:
         config = pkg_config_models.load_pkg_config(pi_path, package_id, package_version)
         if config.root.pkg_type == "custom":
             # TODO: figure out multiple binary package for custom package
-            depends: dict[pkg_models.BinPkgId, list[pkg_models.BinPkgId]] = {}
+            depends: dict[pkg_models.BinPkgId, list[pkg_models.BinPkgId]] = {
+                bin_pkg: bin_pkg_data.depends
+                for bin_pkg, bin_pkg_data in config.root.binaries.items()
+            }
         elif config.root.pkg_type == "cygwin":
             self.initialize_cygwin()
             assert self.cygwin_release is not None
@@ -300,8 +303,8 @@ class PkgOps:
                 raise RuntimeError(f"Package {pkg_full_name} not found in Cygwin release.")
             pkg_info = self.cygwin_release.packages[pkg_full_name]
             depends = {
-                pkg_models.bin_pkg_id(pkg_models.unqualified_pkg_name(package_id)): [
-                    pkg_models.bin_pkg_id(dep) for dep in pkg_info.depends
+                pkg_models.BinPkgId(package_id.name): [
+                    pkg_models.BinPkgId(dep) for dep in pkg_info.depends
                 ]
             }
         else:

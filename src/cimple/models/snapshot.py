@@ -9,24 +9,24 @@ class SnapshotSrcPkg(pydantic.BaseModel):
     name: str
     version: str
     build_depends: typing.Annotated[
-        list[pkg_models.BinPkgId], pydantic.AfterValidator(pkg_models.bin_pkg_id_list_validator)
+        list[pkg_models.BinPkgId], pydantic.BeforeValidator(pkg_models.bin_pkg_id_list_validator)
     ]
     binary_packages: typing.Annotated[
-        list[pkg_models.BinPkgId], pydantic.AfterValidator(pkg_models.bin_pkg_id_list_validator)
+        list[pkg_models.BinPkgId], pydantic.BeforeValidator(pkg_models.bin_pkg_id_list_validator)
     ]
     pkg_type: typing.Literal["src"]
 
     @pydantic.field_serializer("build_depends")
     def serialize_build_depends(self, build_depends: list[pkg_models.BinPkgId]) -> list[str]:
-        return [pkg_models.unqualified_pkg_name(pkg_id) for pkg_id in build_depends]
+        return [pkg_id.name for pkg_id in build_depends]
 
     @pydantic.field_serializer("binary_packages")
     def serialize_binary_packages(self, binary_packages: list[pkg_models.BinPkgId]) -> list[str]:
-        return [pkg_models.unqualified_pkg_name(pkg_id) for pkg_id in binary_packages]
+        return [pkg_id.name for pkg_id in binary_packages]
 
     @property
     def id(self) -> pkg_models.SrcPkgId:
-        return pkg_models.src_pkg_id(self.name)
+        return pkg_models.SrcPkgId(self.name)
 
 
 class SnapshotBinPkg(pydantic.BaseModel):
@@ -34,17 +34,17 @@ class SnapshotBinPkg(pydantic.BaseModel):
     sha256: str
     compression_method: typing.Literal["xz"]
     depends: typing.Annotated[
-        list[pkg_models.BinPkgId], pydantic.AfterValidator(pkg_models.bin_pkg_id_list_validator)
+        list[pkg_models.BinPkgId], pydantic.BeforeValidator(pkg_models.bin_pkg_id_list_validator)
     ]
     pkg_type: typing.Literal["bin"]
 
     @pydantic.field_serializer("depends")
     def serialize_depends(self, depends: list[pkg_models.BinPkgId]) -> list[str]:
-        return [pkg_models.unqualified_pkg_name(pkg_id) for pkg_id in depends]
+        return [pkg_id.name for pkg_id in depends]
 
     @property
     def id(self) -> pkg_models.BinPkgId:
-        return pkg_models.bin_pkg_id(self.name)
+        return pkg_models.BinPkgId(self.name)
 
     @property
     def tarball_name(self) -> str:
@@ -52,32 +52,36 @@ class SnapshotBinPkg(pydantic.BaseModel):
 
 
 class SnapshotPkg(pydantic.RootModel):
-    root: typing.Union[SnapshotSrcPkg, SnapshotBinPkg] = pydantic.Field(description="pkg_type")  # noqa: UP007
+    root: typing.Union[SnapshotSrcPkg, SnapshotBinPkg] = pydantic.Field(discriminator="pkg_type")  # noqa: UP007
 
 
 def snapshot_pkg_is_src(
     snapshot_pkg: SnapshotSrcPkg | SnapshotBinPkg,
 ) -> typing.TypeGuard[SnapshotSrcPkg]:
-    return pkg_models.pkg_is_src(snapshot_pkg.id)
+    return snapshot_pkg.pkg_type == "src"
 
 
 def snapshot_pkg_is_bin(
     snapshot_pkg: SnapshotSrcPkg | SnapshotBinPkg,
 ) -> typing.TypeGuard[SnapshotBinPkg]:
-    return pkg_models.pkg_is_bin(snapshot_pkg.id)
+    return snapshot_pkg.pkg_type == "bin"
 
 
 class SnapshotChanges(pydantic.BaseModel):
-    add: list[pkg_models.SrcPkgId]
-    remove: list[pkg_models.SrcPkgId]
+    add: typing.Annotated[
+        list[pkg_models.SrcPkgId], pydantic.BeforeValidator(pkg_models.src_pkg_id_list_validator)
+    ]
+    remove: typing.Annotated[
+        list[pkg_models.SrcPkgId], pydantic.BeforeValidator(pkg_models.src_pkg_id_list_validator)
+    ]
 
     @pydantic.field_serializer("add")
     def serialize_add(self, add: list[pkg_models.SrcPkgId]) -> list[str]:
-        return [pkg_models.unqualified_pkg_name(pkg_id) for pkg_id in add]
+        return [pkg_id.name for pkg_id in add]
 
     @pydantic.field_serializer("remove")
     def serialize_remove(self, remove: list[pkg_models.SrcPkgId]) -> list[str]:
-        return [pkg_models.unqualified_pkg_name(pkg_id) for pkg_id in remove]
+        return [pkg_id.name for pkg_id in remove]
 
 
 class SnapshotModel(pydantic.BaseModel):

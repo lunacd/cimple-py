@@ -12,7 +12,7 @@ def test_add_pkg_to_snapshot(helpers: tests.conftest.Helpers):
     snapshot = helpers.mock_cimple_snapshot([])
 
     # WHEN: adding a source package
-    pkg_id = cimple.models.pkg.src_pkg_id("cmake")
+    pkg_id = cimple.models.pkg.SrcPkgId("cmake")
     snapshot.add_src_pkg(pkg_id, "4.0.3-0", [])
 
     # THEN: the source package is added to the snapshot
@@ -22,7 +22,7 @@ def test_add_pkg_to_snapshot(helpers: tests.conftest.Helpers):
     assert cimple.models.snapshot.snapshot_pkg_is_src(source_snapshot_pkg.root)
 
     # WHEN: adding a binary package
-    bin_pkg_id = cimple.models.pkg.bin_pkg_id("cmake")
+    bin_pkg_id = cimple.models.pkg.BinPkgId("cmake")
     snapshot.add_bin_pkg(bin_pkg_id, pkg_id, "dummysha256", [])
 
     # THEN: the binary package is added to the snapshot

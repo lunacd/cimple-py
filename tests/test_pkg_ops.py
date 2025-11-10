@@ -18,7 +18,7 @@ if typing.TYPE_CHECKING:
 @pytest.mark.usefixtures("basic_cimple_store")
 def test_build_pkg_custom_with_cimple_pi(cimple_pi: pathlib.Path, mocker: MockerFixture):
     # GIVEN: a real source package to build
-    package_id = pkg_models.src_pkg_id("custom")
+    package_id = pkg_models.SrcPkgId("custom")
     package_version = "0.0.1-1"
     cimple_snapshot = unittest.mock.Mock()
     return_process = unittest.mock.Mock()
@@ -67,7 +67,7 @@ def test_build_cygwin_pkg(
 
     # WHEN: Building a Cygwin package (make)
     output_path = uut.build_pkg(
-        pkg_models.src_pkg_id("make"),
+        pkg_models.SrcPkgId("make"),
         "4.4.1-2",
         pi_path=cimple_pi,
         cimple_snapshot=cimple_snapshot,

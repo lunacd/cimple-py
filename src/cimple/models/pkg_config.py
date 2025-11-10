@@ -18,8 +18,12 @@ class PkgConfigPkgSection(pydantic.BaseModel):
     supported_platforms: list[str]
 
     build_depends: typing.Annotated[
-        list[models_pkg.BinPkgId], pydantic.AfterValidator(models_pkg.bin_pkg_id_list_validator)
+        list[models_pkg.BinPkgId], pydantic.BeforeValidator(models_pkg.bin_pkg_id_list_validator)
     ]
+
+    @pydantic.field_serializer("build_depends")
+    def serialize_build_depends(self, build_depends: list[models_pkg.BinPkgId]) -> list[str]:
+        return [dep.name for dep in build_depends]
 
 
 class PkgConfigInputSection(pydantic.BaseModel):
@@ -61,9 +65,13 @@ class PkgConfigBinarySection(pydantic.BaseModel):
     """
 
     depends: typing.Annotated[
-        list[models_pkg.BinPkgId] | None,
-        pydantic.AfterValidator(models_pkg.bin_pkg_id_list_validator),
+        list[models_pkg.BinPkgId],
+        pydantic.BeforeValidator(models_pkg.bin_pkg_id_list_validator),
     ] = []
+
+    @pydantic.field_serializer("depends")
+    def serialize_depends(self, depends: list[models_pkg.BinPkgId]) -> list[str]:
+        return [dep.name for dep in depends]
 
 
 class PkgConfigCustom(pydantic.BaseModel):
@@ -80,16 +88,25 @@ class PkgConfigCustom(pydantic.BaseModel):
     pkg: PkgConfigPkgSection
     input: PkgConfigInputSection
     rules: PkgConfigRulesSection
-    binaries: dict[str, PkgConfigBinarySection]
+    binaries: typing.Annotated[
+        dict[models_pkg.BinPkgId, PkgConfigBinarySection],
+        pydantic.BeforeValidator(lambda b: {models_pkg.BinPkgId(k): v for k, v in b.items()}),
+    ]
+
+    @pydantic.field_serializer("binaries")
+    def serialize_binaries(
+        self, binaries: dict[models_pkg.BinPkgId, PkgConfigBinarySection]
+    ) -> dict[str, typing.Any]:
+        return {k.name: v for k, v in binaries.items()}
 
     @property
     def id(self) -> models_pkg.SrcPkgId:
-        return models_pkg.src_pkg_id(self.name)
+        return models_pkg.SrcPkgId(self.name)
 
     @property
     def binary_packages(self) -> list[models_pkg.BinPkgId]:
         # TODO: support multiple binaries per source
-        return [models_pkg.bin_pkg_id(self.name)]
+        return [models_pkg.BinPkgId(self.name)]
 
     @property
     def build_depends(self) -> list[models_pkg.BinPkgId]:
@@ -108,13 +125,13 @@ class PkgConfigCygwin(pydantic.BaseModel):
 
     @property
     def id(self) -> models_pkg.SrcPkgId:
-        return models_pkg.src_pkg_id(self.name)
+        return models_pkg.SrcPkgId(self.name)
 
     @property
     def binary_packages(self) -> list[models_pkg.BinPkgId]:
         # Cygwin integration pulls in Cygwin binary packages directly,
         # so it's impossible to have multiple binary packages per source
-        return [models_pkg.bin_pkg_id(self.name)]
+        return [models_pkg.BinPkgId(self.name)]
 
     @property
     def build_depends(self) -> list[models_pkg.BinPkgId]:
@@ -126,9 +143,7 @@ class PkgConfig(pydantic.RootModel):
 
 
 def load_pkg_config(pi_path: pathlib.Path, package: models_pkg.SrcPkgId, package_version: str):
-    config_path = (
-        pi_path / "pkg" / models_pkg.unqualified_pkg_name(package) / package_version / "pkg.toml"
-    )
+    config_path = pi_path / "pkg" / package.name / package_version / "pkg.toml"
     with config_path.open("rb") as f:
         config_dict = tomllib.load(f)
         return PkgConfig.model_validate(config_dict)

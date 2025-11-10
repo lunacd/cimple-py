@@ -26,7 +26,7 @@ def build_pkg(
     snapshot_map = snapshot_core.load_snapshot(snapshot_name)
     pkg_processor = pkg_ops.PkgOps()
     pkg_processor.build_pkg(
-        pkg_models.src_pkg_id(pkg_name),
+        pkg_models.SrcPkgId(pkg_name),
         pkg_version,
         pi_path=pathlib.Path(pkg_index_path),
         cimple_snapshot=snapshot_map,
