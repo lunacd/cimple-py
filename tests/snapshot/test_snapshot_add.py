@@ -1,8 +1,11 @@
+import importlib
+import importlib.resources
 import typing
 
 import pytest
 
 import cimple.constants
+import cimple.snapshot.core
 from cimple.models import pkg as pkg_models
 from cimple.models import snapshot as snapshot_models
 from cimple.snapshot import ops as snapshot_ops
@@ -10,6 +13,7 @@ from cimple.snapshot import ops as snapshot_ops
 if typing.TYPE_CHECKING:
     import pathlib
 
+    import pyfakefs.fake_filesystem
     from pytest_mock import MockerFixture
 
     import tests.conftest
@@ -148,4 +152,40 @@ def test_snapshot_add_multiple_packages(
         "cygwin",
         "libguile3.0_1",
         "libintl8",
+    ]
+
+
+@pytest.mark.usefixtures("basic_cimple_store")
+def test_snapshot_add_custom(
+    cimple_pi: pathlib.Path, mocker: MockerFixture, fs: pyfakefs.fake_filesystem.FakeFilesystem
+):
+    # GIVEN: a snapshot with make's binary dependencies
+    snapshot = cimple.snapshot.core.load_snapshot("test-snapshot")
+    with importlib.resources.path("tests", "data", "dummy_output") as dummy_output_path:
+        fs.makedirs(dummy_output_path.as_posix())
+        fs.create_file(dummy_output_path / "custom.txt")
+        mocker.patch("cimple.pkg.ops.PkgOps._build_custom_pkg", return_value=dummy_output_path)
+
+    # WHEN: adding a package to the snapshot
+    new_snapshot = snapshot_ops.add(
+        snapshot,
+        [snapshot_ops.VersionedSourcePackage(id=pkg_models.SrcPkgId("custom"), version="0.0.1-1")],
+        cimple_pi,
+        parallel=1,
+    )
+
+    # THEN: the package should be in the snapshot
+    assert pkg_models.SrcPkgId("custom") in new_snapshot.pkg_map
+    assert pkg_models.BinPkgId("custom") in new_snapshot.pkg_map
+
+    # THEN: pkg exists in the pkg store
+    make_bin_pkg = new_snapshot.pkg_map[pkg_models.BinPkgId("custom")].root
+    assert snapshot_models.snapshot_pkg_is_bin(make_bin_pkg)
+    sha256 = make_bin_pkg.sha256
+    assert (cimple.constants.cimple_pkg_dir / f"custom-{sha256}.tar.xz").exists()
+
+    # THEN: the dependencies are correct
+    assert all(d.type == "bin" for d in make_bin_pkg.depends)
+    assert sorted([d.name for d in make_bin_pkg.depends]) == [
+        "pkg2-bin",
     ]

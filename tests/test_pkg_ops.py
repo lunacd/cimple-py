@@ -20,7 +20,7 @@ def test_build_pkg_custom_with_cimple_pi(cimple_pi: pathlib.Path, mocker: Mocker
     # GIVEN: a real source package to build
     package_id = pkg_models.SrcPkgId("custom")
     package_version = "0.0.1-1"
-    cimple_snapshot = unittest.mock.Mock()
+    cimple_snapshot = snapshot_core.load_snapshot("test-snapshot")
     return_process = unittest.mock.Mock()
     return_process.returncode = 0
     run_command_mock = mocker.patch(

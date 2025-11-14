@@ -5,10 +5,10 @@ pkg_type = "custom"
 
 [pkg]
 supported_platforms = ["windows-x86_64"]
-build_depends = []
+build_depends = ["pkg1-bin"]
 
 [binaries.custom]
-depends = ["pkg1"]
+depends = ["pkg2-bin"]
 
 [input]
 source_version = "0.0.1"

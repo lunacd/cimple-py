@@ -135,7 +135,7 @@ class CimpleSnapshot:
 
         # Add package to snapshot map
         new_snapshot_pkg = snapshot_models.SnapshotPkg(
-            root=snapshot_models.SnapshotSrcPkg(
+            root=snapshot_models.SnapshotSrcPkg.model_construct(
                 name=pkg_id.name,
                 version=pkg_version,
                 build_depends=build_depends,
