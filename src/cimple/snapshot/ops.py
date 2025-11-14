@@ -74,7 +74,7 @@ def add(
 
     # Build package
     for package in packages_to_build:
-        logging.info("Building %s-%s", package.id, package.version)
+        logging.info("Building %s-%s", package.id.name, package.version)
 
         # Add package to snapshot
         new_snapshot.add_src_pkg(

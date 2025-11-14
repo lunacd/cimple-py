@@ -70,7 +70,7 @@ class PkgOps:
         pkg_id: pkg_models.BinPkgId,
         cimple_snapshot: snapshot_core.CimpleSnapshot,
     ):
-        cimple.logging.info("Installing %s", pkg_id)
+        cimple.logging.info("Installing %s", pkg_id.name)
 
         pkg_data = cimple_snapshot.get_snapshot_pkg(pkg_id)
         if pkg_data is None:
