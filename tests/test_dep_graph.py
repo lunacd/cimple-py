@@ -13,5 +13,10 @@ def test_get_build_depends():
     build_deps = cimple_snapshot.build_depends_of(pkg_models.SrcPkgId("pkg1"))
 
     # Then: returns the correct build dependencies, direct and transitive
+    # The dep-graph is as follows:
+    # pkg1 -> pkg2-bin -> pkg3-bin
+    # pkg2 -> pkg4-bin
+    # If graph traversal incorrectly considers build-depends of runtime deps,
+    # pkg1 would also depend on pkg4-bin, which is incorrect.
     assert all(d.type == "bin" for d in build_deps)
     assert sorted([d.name for d in build_deps]) == ["pkg2-bin", "pkg3-bin"]

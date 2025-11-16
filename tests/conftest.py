@@ -41,7 +41,7 @@ def basic_cimple_store_fixture(fs: pyfakefs.fake_filesystem.FakeFilesystem) -> N
                 "name": "pkg2",
                 "version": "1.0",
                 "pkg_type": "src",
-                "build_depends": [],
+                "build_depends": ["pkg4-bin"],
                 "binary_packages": ["pkg2-bin"],
             },
             {
@@ -61,6 +61,20 @@ def basic_cimple_store_fixture(fs: pyfakefs.fake_filesystem.FakeFilesystem) -> N
             {
                 "name": "pkg3-bin",
                 "sha256": "870f2deea4a3981df6ed4cccd05df2bd3465a7556e952e812df0cf46240008ec",
+                "pkg_type": "bin",
+                "compression_method": "xz",
+                "depends": [],
+            },
+            {
+                "name": "pkg4",
+                "version": "1.0",
+                "pkg_type": "src",
+                "build_depends": [],
+                "binary_packages": ["pkg4-bin"],
+            },
+            {
+                "name": "pkg4-bin",
+                "sha256": "6f4817737b3650965c73f0264d10673527bfde1fb4cbcb3f4a0fa357ff5a1a56",
                 "pkg_type": "bin",
                 "compression_method": "xz",
                 "depends": [],
