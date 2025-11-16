@@ -1,3 +1,4 @@
+import collections.abc
 import copy
 import datetime
 import typing
@@ -81,19 +82,42 @@ class CimpleSnapshot:
         new_snapshot.name = datetime.datetime.now(tz=datetime.UTC).strftime("%Y%m%d-%H%M%S")
         return new_snapshot
 
+    def _binary_neighbors(
+        self,
+        node: pkg_models.PkgId,
+    ) -> collections.abc.Generator[pkg_models.PkgId]:
+        """
+        Get the binary package neighbors of a given node.
+
+        Given how the dependency graph is constructed, this will yield:
+        - For a source package: all binary packages it build-depends on.
+        - For a binary package: all binary packages it depends on.
+        """
+        for neighbor in nx.neighbors(self.graph, node):
+            if neighbor.type == "bin":
+                yield neighbor
+
     def build_depends_of(self, src_pkg: pkg_models.SrcPkgId) -> list[pkg_models.BinPkgId]:
         """
         Get all binary packages that are required during the build a source package.
         """
-        descendents = nx.descendants(self.graph, src_pkg)
-        return list(filter(lambda item: item.type == "bin", descendents))
+        edges = nx.generic_bfs_edges(self.graph, src_pkg, neighbors=self._binary_neighbors)
+        descendants: list[pkg_models.BinPkgId] = []
+        for _, node in edges:
+            assert node.type == "bin"
+            descendants.append(node)
+        return descendants
 
     def runtime_depends_of(self, bin_pkg: pkg_models.BinPkgId) -> list[pkg_models.BinPkgId]:
         """
         Get all binary packages that are required at runtime by a binary package.
         """
-        descendents = nx.descendants(self.graph, bin_pkg)
-        return list(filter(lambda item: item.type == "bin", descendents))
+        edges = nx.generic_bfs_edges(self.graph, bin_pkg, neighbors=self._binary_neighbors)
+        descendants: list[pkg_models.BinPkgId] = []
+        for _, node in edges:
+            assert node.type == "bin"
+            descendants.append(node)
+        return descendants
 
     def dump_snapshot(self):
         """
