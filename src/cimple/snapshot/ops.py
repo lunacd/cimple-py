@@ -84,7 +84,7 @@ def add(
         )
 
         # Build package
-        output_path = pkg_processor.build_pkg(
+        output_paths = pkg_processor.build_pkg(
             package.id,
             package.version,
             pi_path=pkg_index_path,
@@ -96,29 +96,29 @@ def add(
 
         # Tar it up and add to snapshot
         # Initially tar it up in a generic name because the sha cannot yet be determined
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            tar_path = pathlib.Path(tmp_dir) / "pkg.tar.xz"
-            with tarfile.open(tar_path, "w:xz") as out_tar:
-                # TODO: is TarFile.add deterministic?
-                out_tar.add(output_path, ".", filter=cimple_tarfile.reproducible_add_filter)
+        for binary_name, output_path in output_paths.items():
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                tar_path = pathlib.Path(tmp_dir) / "pkg.tar.xz"
+                with tarfile.open(tar_path, "w:xz") as out_tar:
+                    # TODO: is TarFile.add deterministic?
+                    out_tar.add(output_path, ".", filter=cimple_tarfile.reproducible_add_filter)
 
-            # Move tarball to pkg store
-            tar_hash = cimple_hash.hash_file(tar_path, "sha256")
-            new_file_name = f"{package.id.name}-{tar_hash}.tar.xz"
-            new_file_path = constants.cimple_pkg_dir / new_file_name
-            if new_file_path.exists():
-                logging.info("Reusing %s", new_file_name)
-            else:
-                _ = tar_path.rename(new_file_path)
+                # Move tarball to pkg store
+                tar_hash = cimple_hash.hash_file(tar_path, "sha256")
+                new_file_name = f"{binary_name}-{tar_hash}.tar.xz"
+                new_file_path = constants.cimple_pkg_dir / new_file_name
+                if new_file_path.exists():
+                    logging.info("Reusing %s", new_file_name)
+                else:
+                    _ = tar_path.rename(new_file_path)
 
-        # TODO: this needs to be repeated for each binary package
-        bin_pkg_id = pkg_models.BinPkgId(package.id.name)
-        new_snapshot.add_bin_pkg(
-            pkg_id=bin_pkg_id,
-            src_pkg=package.id,
-            pkg_sha256=tar_hash,
-            depends=package_dependencies[package.id].depends[bin_pkg_id],
-        )
+            bin_pkg_id = pkg_models.BinPkgId(binary_name)
+            new_snapshot.add_bin_pkg(
+                pkg_id=bin_pkg_id,
+                src_pkg=package.id,
+                pkg_sha256=tar_hash,
+                depends=package_dependencies[package.id].depends[bin_pkg_id],
+            )
 
     return new_snapshot
 

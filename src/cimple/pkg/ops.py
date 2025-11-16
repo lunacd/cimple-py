@@ -92,7 +92,7 @@ class PkgOps:
         pi_path: pathlib.Path,
         cimple_snapshot: snapshot_core.CimpleSnapshot,
         build_options: PackageBuildOptions,
-    ) -> pathlib.Path:
+    ) -> dict[str, pathlib.Path]:
         # Prepare chroot image
         cimple.logging.info("Preparing image")
         # TODO: support multiple platforms and arch
@@ -229,12 +229,17 @@ class PkgOps:
                 )
 
         cimple.logging.info("Build result is available in %s", output_dir)
-        return output_dir
+        return {
+            binary_id.name: output_dir / binary_data.output_dir
+            if binary_data.output_dir
+            else output_dir
+            for binary_id, binary_data in config.binaries.items()
+        }
 
     def _build_cygwin_pkg(
         self,
         pkg_config: pkg_config_models.PkgConfigCygwin,
-    ) -> pathlib.Path:
+    ) -> dict[str, pathlib.Path]:
         # Download and parse Cygwin release file
         self.initialize_cygwin()
         assert self.cygwin_release is not None
@@ -257,7 +262,7 @@ class PkgOps:
             # Extract to output directory
             cimple.tarfile.extract(downloaded_install_file, output_dir)
 
-        return output_dir
+        return {pkg_config.name: output_dir}
 
     def build_pkg(
         self,
@@ -267,7 +272,7 @@ class PkgOps:
         pi_path: pathlib.Path,
         cimple_snapshot: snapshot_core.CimpleSnapshot,
         build_options: PackageBuildOptions,
-    ) -> pathlib.Path:
+    ) -> dict[str, pathlib.Path]:
         config = pkg_config_models.load_pkg_config(pi_path, package_id, package_version)
 
         match config.root.pkg_type:
@@ -282,8 +287,6 @@ class PkgOps:
                 return self._build_cygwin_pkg(
                     typing.cast("pkg_config_models.PkgConfigCygwin", config.root),
                 )
-            case _:
-                raise RuntimeError(f"Unknown package type {config.root.pkg_type}")
 
     def resolve_dependencies(
         self, package_id: pkg_models.SrcPkgId, package_version: str, *, pi_path: pathlib.Path

@@ -68,6 +68,7 @@ class PkgConfigBinarySection(pydantic.BaseModel):
         list[models_pkg.BinPkgId],
         pydantic.BeforeValidator(models_pkg.bin_pkg_id_list_validator),
     ] = []
+    output_dir: str | None = None
 
     @pydantic.field_serializer("depends")
     def serialize_depends(self, depends: list[models_pkg.BinPkgId]) -> list[str]:

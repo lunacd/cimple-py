@@ -43,7 +43,44 @@ def test_build_pkg_custom_with_cimple_pi(cimple_pi: pathlib.Path, mocker: Mocker
     run_command_mock.assert_called_once()
     assert run_command_mock.call_args[0][0] == ["abc", "abc"]
     assert run_command_mock.call_args[1]["extra_paths"] == [pathlib.Path("/extra/path")]
-    assert result.is_dir()
+    assert len(result) == 1
+    assert "custom" in result
+    assert result["custom"].is_dir()
+
+
+@pytest.mark.usefixtures("basic_cimple_store")
+def test_build_pkg_custom_with_multiple_binaries(cimple_pi: pathlib.Path, mocker: MockerFixture):
+    # GIVEN: a real source package to build
+    package_id = pkg_models.SrcPkgId("multiple_binaries")
+    package_version = "0.0.1-1"
+    cimple_snapshot = snapshot_core.load_snapshot("test-snapshot")
+    return_process = unittest.mock.Mock()
+    return_process.returncode = 0
+    run_command_mock = mocker.patch(
+        "cimple.pkg.ops.cimple.process.run_command", return_value=return_process
+    )
+    uut = pkg_ops.PkgOps()
+
+    # WHEN: building a custom package
+    result = uut.build_pkg(
+        package_id,
+        package_version,
+        pi_path=cimple_pi,
+        cimple_snapshot=cimple_snapshot,
+        build_options=pkg_ops.PackageBuildOptions(
+            parallel=2, extra_paths=[pathlib.Path("/extra/path")]
+        ),
+    )
+
+    # THEN: the expected build commands are called
+    run_command_mock.assert_called_once()
+    assert run_command_mock.call_args[0][0] == ["abc", "abc"]
+    assert run_command_mock.call_args[1]["extra_paths"] == [pathlib.Path("/extra/path")]
+    assert len(result) == 2
+    assert "multiple1" in result
+    assert result["multiple1"].is_dir()
+    assert "multiple2" in result
+    assert result["multiple2"].is_dir()
 
 
 @pytest.mark.usefixtures("basic_cimple_store")
@@ -66,7 +103,7 @@ def test_build_cygwin_pkg(
     uut = pkg_ops.PkgOps()
 
     # WHEN: Building a Cygwin package (make)
-    output_path = uut.build_pkg(
+    output_paths = uut.build_pkg(
         pkg_models.SrcPkgId("make"),
         "4.4.1-2",
         pi_path=cimple_pi,
@@ -75,6 +112,10 @@ def test_build_cygwin_pkg(
     )
 
     # THEN:
-    assert output_path.exists(), f"Output path does not exist: {output_path}"
-    assert (output_path / "usr" / "bin" / "make.exe").exists(), "make.exe not found in output"
-    assert output_path.name == "make-4.4.1-2"
+    assert len(output_paths) == 1
+    assert "make" in output_paths
+    assert output_paths["make"].exists(), f"Output path does not exist: {output_paths}"
+    assert (output_paths["make"] / "usr" / "bin" / "make.exe").exists(), (
+        "make.exe not found in output"
+    )
+    assert output_paths["make"].name == "make-4.4.1-2"

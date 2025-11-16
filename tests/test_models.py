@@ -30,7 +30,7 @@ import cimple.models.snapshot
                     {"cwd": "/build/dir", "env": {"VAR1": "value1"}, "rule": ["make", "-j4"]},
                 ]
             },
-            "binaries": {"cmake": {"depends": ["cygwin"]}},
+            "binaries": {"cmake": {"depends": ["cygwin"], "output_dir": None}},
         },
     ],
 )

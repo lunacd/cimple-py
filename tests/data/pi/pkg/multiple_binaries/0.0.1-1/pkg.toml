@@ -1,0 +1,24 @@
+schema_version = 0
+pkg_type = "custom"
+version = "0.0.1-1"
+name = "multiple_binaries"
+
+[pkg]
+supported_platforms = ["windows-x86_64"]
+build_depends = ["pkg1-bin"]
+
+[input]
+source_version = "0.0.1"
+tarball_compression = "xz"
+tarball_root_dir = "src"
+sha256 = "a4defb8341593d4deea245993aeb3ce54de060affb10cb9ae60ec3789dd3f241"
+patches = []
+
+[rules]
+default = ["abc abc"]
+
+[binaries.multiple1]
+depends = ["pkg2-bin"]
+
+[binaries.multiple2]
+depends = ["multiple1"]

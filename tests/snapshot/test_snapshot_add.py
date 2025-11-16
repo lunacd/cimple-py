@@ -164,7 +164,9 @@ def test_snapshot_add_custom(
     with importlib.resources.path("tests", "data", "dummy_output") as dummy_output_path:
         fs.makedirs(dummy_output_path.as_posix())
         fs.create_file(dummy_output_path / "custom.txt")
-        mocker.patch("cimple.pkg.ops.PkgOps._build_custom_pkg", return_value=dummy_output_path)
+        mocker.patch(
+            "cimple.pkg.ops.PkgOps._build_custom_pkg", return_value={"custom": dummy_output_path}
+        )
 
     # WHEN: adding a package to the snapshot
     new_snapshot = snapshot_ops.add(
