@@ -54,9 +54,8 @@ def run_command(
 
     if env is None:
         env = {}
-    env.update(cimple.env.baseline_env())
-    # TODO: if PATH is specified in env, merge with it.
-    env.update({"PATH": path})
+    env = cimple.env.merge_env(env, cimple.env.baseline_env())
+    env = cimple.env.merge_env(env, {"PATH": path})
 
     cimple.logging.debug("Executing %s in %s, env %s", " ".join(args), cwd, env)
     return subprocess.run(args, text=True, env=env, cwd=cwd)
