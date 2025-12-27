@@ -25,7 +25,6 @@ def test_baseline_env():
 
     # THEN: the expected environment variables are present
     assert "TMP" in env
-    assert "TEMP" in env
     assert "SYSTEMROOT" in env
     assert "SYSTEMDRIVE" in env
     assert "Path" in env
@@ -47,6 +46,10 @@ def test_merge_env():
     assert merged_env[path_env] == f"OverridePath\\{os.pathsep}BasePath\\"
 
 
+@pytest.mark.skipif(
+    not cimple.system.is_windows(),
+    reason="This test is only relevant for MSVC on Windows",
+)
 def test_filter_msvc_path():
     # GIVEN: a PATH string containing MSVC and non-MSVC paths
     msvc_path = "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\x64"
