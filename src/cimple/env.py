@@ -33,7 +33,8 @@ def baseline_env() -> dict[str, str]:
         "USERPROFILE",
         "WINDIR",
     ]
-    tmpdir = os.environ["TEMP"]
+    tmpdir = os.environ.get("TEMP", os.environ.get("TMPDIR", None))
+    assert tmpdir is not None, "TEMP or TMPDIR must be set in the environment"
     system_root = os.environ["SYSTEMROOT"]
     baseline_env = {
         "TMP": tmpdir,
