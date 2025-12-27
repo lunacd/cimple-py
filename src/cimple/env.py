@@ -33,8 +33,9 @@ def baseline_env() -> dict[str, str]:
         "USERPROFILE",
         "WINDIR",
     ]
-    tmpdir = os.environ.get("TEMP", os.environ.get("TMPDIR", None))
-    assert tmpdir is not None, "TEMP or TMPDIR must be set in the environment"
+
+    tmpdir = os.environ["TEMP"] if cimple.system.is_windows() else os.environ.get("TMPDIR", "/tmp")
+
     system_root = os.environ["SYSTEMROOT"]
     baseline_env = {
         "TMP": tmpdir,
