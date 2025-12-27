@@ -23,36 +23,42 @@ def merge_env(base: dict[str, str], override: dict[str, str]) -> dict[str, str]:
 def baseline_env() -> dict[str, str]:
     # TODO: support linux and macos
     # TODO: move this to image.json
-    windows_required_envs = [
-        "HOMEDRIVE",
-        "HOMEPATH",
-        "LOGONSERVER",
-        "SYSTEMDRIVE",
-        "USERDOMAIN",
-        "USERNAME",
-        "USERPROFILE",
-        "WINDIR",
-    ]
-
-    tmpdir = os.environ["TEMP"] if cimple.system.is_windows() else os.environ.get("TMPDIR", "/tmp")
-
-    system_root = os.environ["SYSTEMROOT"]
-    baseline_env = {
-        "TMP": tmpdir,
-        "TEMP": tmpdir,
-        "TMPDIR": tmpdir,
-        # Reproducible builds
-        "SOURCE_DATE_EPOCH": "0",
-        # Standard system utilities like cmd.exe is available in system32
-        "PATH": f"{system_root}\\System32",
-        "SYSTEMROOT": system_root,
-    }
-
-    for env in windows_required_envs:
-        baseline_env[env] = os.environ[env]
-
     if cimple.system.is_windows():
+        windows_required_envs = [
+            "HOMEDRIVE",
+            "HOMEPATH",
+            "LOGONSERVER",
+            "SYSTEMDRIVE",
+            "USERDOMAIN",
+            "USERNAME",
+            "USERPROFILE",
+            "WINDIR",
+        ]
+
+        tmpdir = os.environ["TEMP"]
+        system_root = os.environ["SYSTEMROOT"]
+
+        baseline_env = {
+            # Standard system utilities like cmd.exe is available in system32
+            "PATH": f"{system_root}\\System32",
+            "SYSTEMROOT": system_root,
+        }
+
+        for env in windows_required_envs:
+            baseline_env[env] = os.environ[env]
+
         baseline_env = merge_env(baseline_env, get_msvc_envs())
+    else:
+        tmpdir = os.environ.get("TMPDIR", "/tmp")
+
+        baseline_env = {"PATH": ""}
+
+    # Reproducible builds
+    baseline_env["SOURCE_DATE_EPOCH"] = "0"
+
+    # Set temporary directory
+    for var in ["TMP", "TEMP", "TMPDIR"]:
+        baseline_env[var] = tmpdir
 
     return baseline_env
 

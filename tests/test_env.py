@@ -19,24 +19,43 @@ def test_msvc_env():
     assert "LIB" in env
 
 
-def test_baseline_env():
+@pytest.mark.skipif(
+    not cimple.system.is_windows(),
+    reason="This test is only relevant for Windows",
+)
+def test_window_baseline_env():
     # WHEN: getting the baseline environment variables
     env = cimple.env.baseline_env()
 
     # THEN: the expected environment variables are present
     assert "TMP" in env
     assert "TEMP" in env
+    assert "TMPDIR" in env
     assert "SYSTEMROOT" in env
     assert "SYSTEMDRIVE" in env
-    assert "Path" in env
-    assert "C:\\Windows\\System32\\" in env["Path"]
+    assert "PATH" in env
+    assert "C:\\WINDOWS\\System32" in env["PATH"]
+
+
+@pytest.mark.skipif(
+    cimple.system.is_windows(),
+    reason="This test is only relevant for Unix-like systems",
+)
+def test_unix_baseline_env():
+    # WHEN: getting the baseline environment variables
+    env = cimple.env.baseline_env()
+
+    # THEN: the expected environment variables are present
+    assert "TMP" in env
+    assert "TEMP" in env
+    assert "TMPDIR" in env
+    assert "PATH" in env
 
 
 def test_merge_env():
     # GIVEN: two environment variable dictionaries
-    path_env = "Path" if cimple.system.is_windows() else "PATH"
-    base_env = {"VAR1": "value1", path_env: "BasePath\\"}
-    override_env = {"VAR1": "override_value", "VAR2": "value2", path_env: "OverridePath\\"}
+    base_env = {"VAR1": "value1", "PATH": "BasePath\\"}
+    override_env = {"VAR1": "override_value", "VAR2": "value2", "PATH": "OverridePath\\"}
 
     # WHEN: merging the two environment variable dictionaries
     merged_env = cimple.env.merge_env(base_env, override_env)
@@ -44,7 +63,7 @@ def test_merge_env():
     # THEN: the merged environment variable dictionary contains the expected values
     assert merged_env["VAR1"] == "override_value"
     assert merged_env["VAR2"] == "value2"
-    assert merged_env[path_env] == f"OverridePath\\{os.pathsep}BasePath\\"
+    assert merged_env["PATH"] == f"OverridePath\\{os.pathsep}BasePath\\"
 
 
 @pytest.mark.skipif(
