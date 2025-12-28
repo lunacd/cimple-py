@@ -5,7 +5,6 @@ import typer
 
 import cimple.logging
 from cimple.models import pkg as pkg_models
-from cimple.models import snapshot as snapshot_models
 from cimple.snapshot import core as snapshot_core
 from cimple.snapshot import ops as snapshot_ops
 
@@ -63,9 +62,8 @@ def reproduce(
     snapshot_to_reproduce = snapshot_core.load_snapshot(reproduce_snapshot_name)
 
     pkgs_to_add = [
-        snapshot_ops.VersionedSourcePackage(id=package_id, version=package_data.root.version)
-        for package_id, package_data in snapshot_to_reproduce.pkg_map.items()
-        if package_id.type == "src" and snapshot_models.snapshot_pkg_is_src(package_data.root)
+        snapshot_ops.VersionedSourcePackage(id=package_id, version=package_data.version)
+        for package_id, package_data in snapshot_to_reproduce.src_pkg_map.items()
     ]
 
     result_snapshot = snapshot_ops.add(
@@ -89,6 +87,9 @@ def reproduce(
     cimple.logging.info(
         "Dumping package data for %s obtained from reproduction...", different_pkg_id
     )
-    package_data = result_snapshot.get_snapshot_pkg(different_pkg_id)
-    assert package_data is not None
+    package_data = (
+        result_snapshot.src_pkg_map[different_pkg_id]
+        if different_pkg_id.type == "src"
+        else result_snapshot.bin_pkg_map[different_pkg_id]
+    )
     cimple.logging.info("%s", package_data.model_dump_json(indent=2))

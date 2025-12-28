@@ -7,7 +7,6 @@ import pytest
 import cimple.constants
 import cimple.snapshot.core
 from cimple.models import pkg as pkg_models
-from cimple.models import snapshot as snapshot_models
 from cimple.snapshot import ops as snapshot_ops
 
 if typing.TYPE_CHECKING:
@@ -82,12 +81,11 @@ def test_snapshot_add_simple(
     )
 
     # THEN: the package should be in the snapshot
-    assert pkg_models.SrcPkgId("make") in new_snapshot.pkg_map
-    assert pkg_models.BinPkgId("make") in new_snapshot.pkg_map
+    assert pkg_models.SrcPkgId("make") in new_snapshot.src_pkg_map
+    assert pkg_models.BinPkgId("make") in new_snapshot.bin_pkg_map
 
     # THEN: pkg exists in the pkg store
-    make_bin_pkg = new_snapshot.pkg_map[pkg_models.BinPkgId("make")].root
-    assert snapshot_models.snapshot_pkg_is_bin(make_bin_pkg)
+    make_bin_pkg = new_snapshot.bin_pkg_map[pkg_models.BinPkgId("make")]
     sha256 = make_bin_pkg.sha256
     assert (cimple.constants.cimple_pkg_dir / f"make-{sha256}.tar.xz").exists()
 
@@ -137,12 +135,11 @@ def test_snapshot_add_multiple_packages(
     )
 
     # THEN: the package should be in the snapshot
-    assert pkg_models.SrcPkgId("make") in new_snapshot.pkg_map
-    assert pkg_models.BinPkgId("make") in new_snapshot.pkg_map
+    assert pkg_models.SrcPkgId("make") in new_snapshot.src_pkg_map
+    assert pkg_models.BinPkgId("make") in new_snapshot.bin_pkg_map
 
     # THEN: pkg exists in the pkg store
-    make_bin_pkg = new_snapshot.pkg_map[pkg_models.BinPkgId("make")].root
-    assert snapshot_models.snapshot_pkg_is_bin(make_bin_pkg)
+    make_bin_pkg = new_snapshot.bin_pkg_map[pkg_models.BinPkgId("make")]
     sha256 = make_bin_pkg.sha256
     assert (cimple.constants.cimple_pkg_dir / f"make-{sha256}.tar.xz").exists()
 
@@ -177,12 +174,11 @@ def test_snapshot_add_custom(
     )
 
     # THEN: the package should be in the snapshot
-    assert pkg_models.SrcPkgId("custom") in new_snapshot.pkg_map
-    assert pkg_models.BinPkgId("custom") in new_snapshot.pkg_map
+    assert pkg_models.SrcPkgId("custom") in new_snapshot.src_pkg_map
+    assert pkg_models.BinPkgId("custom") in new_snapshot.bin_pkg_map
 
     # THEN: pkg exists in the pkg store
-    make_bin_pkg = new_snapshot.pkg_map[pkg_models.BinPkgId("custom")].root
-    assert snapshot_models.snapshot_pkg_is_bin(make_bin_pkg)
+    make_bin_pkg = new_snapshot.bin_pkg_map[pkg_models.BinPkgId("custom")]
     sha256 = make_bin_pkg.sha256
     assert (cimple.constants.cimple_pkg_dir / f"custom-{sha256}.tar.xz").exists()
 
