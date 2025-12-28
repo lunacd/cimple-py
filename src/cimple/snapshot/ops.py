@@ -58,7 +58,7 @@ def add(
     for package in packages_to_build:
         # Check build and runtime dependencies are available in the snapshot
         for dep in package_dependencies[package.id].build_depends:
-            if dep not in new_snapshot.pkg_map:
+            if dep not in new_snapshot.bin_pkg_map:
                 raise RuntimeError(
                     f"Build dependency {dep} for package {package.id.name} not found in snapshot"
                 )
@@ -66,7 +66,7 @@ def add(
             for dep in bin_dep_list:
                 # Binary dependencies can be either in the snapshot or produced by the package being
                 # built
-                if dep not in new_snapshot.pkg_map and dep not in binaries_will_built:
+                if dep not in new_snapshot.bin_pkg_map and dep not in binaries_will_built:
                     raise RuntimeError(
                         f"Binary dependency {dep.name} for package {package.id.name}"
                         " not found in snapshot"

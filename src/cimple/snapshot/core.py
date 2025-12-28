@@ -1,11 +1,14 @@
 import collections.abc
 import copy
 import datetime
+import itertools
 import typing
 
 import networkx as nx
 
 import cimple.constants
+import cimple.models
+import cimple.models.snapshot
 from cimple.models import pkg as pkg_models
 from cimple.models import snapshot as snapshot_models
 
@@ -66,7 +69,16 @@ class CimpleSnapshot:
                     self.graph.add_edge(package.root.id, dep)
 
         # Build package map for quick access
-        self.pkg_map = {pkg.root.id: pkg for pkg in snapshot_data.pkgs}
+        self.src_pkg_map = {
+            pkg.root.id: pkg.root
+            for pkg in snapshot_data.pkgs
+            if snapshot_models.snapshot_pkg_is_src(pkg.root)
+        }
+        self.bin_pkg_map = {
+            pkg.root.id: pkg.root
+            for pkg in snapshot_data.pkgs
+            if snapshot_models.snapshot_pkg_is_bin(pkg.root)
+        }
 
         # Store snapshot metadata
         self.version: typing.Literal[0] = snapshot_data.version
@@ -124,10 +136,14 @@ class CimpleSnapshot:
         Dump the snapshot to a JSON file.
         """
         snapshot_name = datetime.datetime.now(tz=datetime.UTC).strftime("%Y%m%d-%H%M%S")
+        pkgs = [
+            cimple.models.snapshot.SnapshotPkg(pkg)
+            for pkg in itertools.chain(self.src_pkg_map.values(), self.bin_pkg_map.values())
+        ]
         snapshot_data = snapshot_models.SnapshotModel(
             version=self.version,
             name=snapshot_name,
-            pkgs=list(self.pkg_map.values()),
+            pkgs=pkgs,
             ancestor=self.ancestor,
             changes=self.changes,
         )
@@ -139,12 +155,6 @@ class CimpleSnapshot:
         with snapshot_manifest.open("w") as f:
             f.write(snapshot_data.model_dump_json())
 
-    def get_snapshot_pkg(
-        self,
-        pkg_id: pkg_models.PkgId,
-    ) -> snapshot_models.SnapshotPkg | None:
-        return self.pkg_map.get(pkg_id, None)
-
     def add_src_pkg(
         self,
         pkg_id: pkg_models.SrcPkgId,
@@ -154,20 +164,18 @@ class CimpleSnapshot:
         """
         Add a package to the snapshot.
         """
-        if pkg_id in self.pkg_map:
+        if pkg_id in self.src_pkg_map:
             raise RuntimeError(f"Package {pkg_id} already exists in snapshot.")
 
         # Add package to snapshot map
-        new_snapshot_pkg = snapshot_models.SnapshotPkg(
-            root=snapshot_models.SnapshotSrcPkg.model_construct(
-                name=pkg_id.name,
-                version=pkg_version,
-                build_depends=build_depends,
-                binary_packages=[],
-                pkg_type="src",
-            )
+        new_src_pkg = snapshot_models.SnapshotSrcPkg.model_construct(
+            name=pkg_id.name,
+            version=pkg_version,
+            build_depends=build_depends,
+            binary_packages=[],
+            pkg_type="src",
         )
-        self.pkg_map[pkg_id] = new_snapshot_pkg
+        self.src_pkg_map[pkg_id] = new_src_pkg
         self.changes.add.append(pkg_id)
 
         # Add package to changes
@@ -188,41 +196,29 @@ class CimpleSnapshot:
         """
         Add a binary package to the snapshot.
         """
-        if pkg_id in self.pkg_map:
+        if pkg_id in self.bin_pkg_map:
             raise RuntimeError(f"Package {pkg_id} already exists in snapshot.")
 
         # Add package to snapshot map
-        new_snapshot_pkg = snapshot_models.SnapshotPkg(
-            root=snapshot_models.SnapshotBinPkg.model_construct(
-                name=pkg_id.name,
-                sha256=pkg_sha256,
-                compression_method="xz",
-                depends=depends,
-                pkg_type="bin",
-            )
+        new_bin_pkg = snapshot_models.SnapshotBinPkg.model_construct(
+            name=pkg_id.name,
+            sha256=pkg_sha256,
+            compression_method="xz",
+            depends=depends,
+            pkg_type="bin",
         )
-        self.pkg_map[pkg_id] = new_snapshot_pkg
+        self.bin_pkg_map[pkg_id] = new_bin_pkg
 
         # Add binary package to its source package
-        assert src_pkg in self.pkg_map, f"Source package {src_pkg} not found in snapshot."
-        src_snapshot_pkg = self.pkg_map[src_pkg]
-        assert snapshot_models.snapshot_pkg_is_src(src_snapshot_pkg.root)
-        src_snapshot_pkg.root.binary_packages.append(pkg_id)
+        assert src_pkg in self.src_pkg_map, f"Source package {src_pkg} not found in snapshot."
+        src_snapshot_pkg = self.src_pkg_map[src_pkg]
+        assert snapshot_models.snapshot_pkg_is_src(src_snapshot_pkg)
+        src_snapshot_pkg.binary_packages.append(pkg_id)
 
         # Add package to graph
         self.graph.add_node(pkg_id)
         for dep in depends:
             self.graph.add_edge(pkg_id, dep)
-
-    def binary_packages(self) -> collections.abc.Generator[pkg_models.BinPkgId]:
-        for pkg in self.pkg_map.values():
-            if snapshot_models.snapshot_pkg_is_bin(pkg.root):
-                yield pkg.root.id
-
-    def src_packages(self) -> collections.abc.Generator[pkg_models.SrcPkgId]:
-        for pkg in self.pkg_map.values():
-            if snapshot_models.snapshot_pkg_is_src(pkg.root):
-                yield pkg.root.id
 
     def compare_pkgs_with(self, rhs: CimpleSnapshot) -> None | pkg_models.PkgId:
         """
@@ -230,10 +226,18 @@ class CimpleSnapshot:
         When they are identical, return None.
         When they are different, return the package ID where things are different.
         """
-        for pkg_id, pkg in self.pkg_map.items():
-            rhs_pkg = rhs.get_snapshot_pkg(pkg_id)
+        # Compare source packages
+        for pkg_id, pkg in self.src_pkg_map.items():
+            rhs_pkg = rhs.src_pkg_map.get(pkg_id)
             if rhs_pkg is None or rhs_pkg != pkg:
                 return pkg_id
+
+        # Compare binary packages
+        for pkg_id, pkg in self.bin_pkg_map.items():
+            rhs_pkg = rhs.bin_pkg_map.get(pkg_id)
+            if rhs_pkg is None or rhs_pkg != pkg:
+                return pkg_id
+
         return None
 
     def __eq__(self, rhs: typing.Any) -> bool:

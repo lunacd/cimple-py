@@ -72,16 +72,16 @@ class PkgOps:
     ):
         cimple.logging.info("Installing %s", pkg_id.name)
 
-        pkg_data = cimple_snapshot.get_snapshot_pkg(pkg_id)
+        pkg_data = cimple_snapshot.bin_pkg_map[pkg_id]
         if pkg_data is None:
             raise RuntimeError(
                 f"Requested package {pkg_id} not found in snapshot {cimple_snapshot.name}."
             )
-        assert snapshot_models.snapshot_pkg_is_bin(pkg_data.root)
+        assert snapshot_models.snapshot_pkg_is_bin(pkg_data)
 
         with tarfile.open(
-            cimple.constants.cimple_pkg_dir / pkg_data.root.tarball_name,
-            cimple.tarfile.get_tarfile_mode("r", pkg_data.root.compression_method),
+            cimple.constants.cimple_pkg_dir / pkg_data.tarball_name,
+            cimple.tarfile.get_tarfile_mode("r", pkg_data.compression_method),
         ) as tar:
             tar.extractall(target_path, filter=cimple.tarfile.writable_extract_filter)
 
