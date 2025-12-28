@@ -66,14 +66,18 @@ def test_pkg_config_model_round_trip(config):
                 },
             ],
             "ancestor": "root",
-            "changes": {"add": ["pkg1"], "remove": ["pkg2"]},
+            "changes": {
+                "add": [{"name": "pkg1", "version": "1.0"}],
+                "remove": ["pkg2"],
+                "update": [{"name": "pkg3", "from": "2.0", "to": "2.1"}],
+            },
         }
     ],
 )
 def test_snapshot_model_round_trip(snapshot):
     # WHEN: loading and then serializing a snapshot model
     model = cimple.models.snapshot.SnapshotModel.model_validate(snapshot)
-    result = model.model_dump()
+    result = model.model_dump(by_alias=True)
 
     # THEN: the result matches the original snapshot data
     assert result == snapshot
