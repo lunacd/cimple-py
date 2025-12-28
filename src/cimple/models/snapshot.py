@@ -67,17 +67,31 @@ def snapshot_pkg_is_bin(
     return snapshot_pkg.pkg_type == "bin"
 
 
+class SnapshotChangeAdd(pydantic.BaseModel):
+    name: str
+    version: str
+
+    @property
+    def id(self) -> pkg_models.SrcPkgId:
+        return pkg_models.SrcPkgId(self.name)
+
+
+class SnapshotChangeUpdate(pydantic.BaseModel):
+    name: str
+    from_version: str = pydantic.Field(alias="from")
+    to_version: str = pydantic.Field(alias="to")
+
+    @property
+    def id(self) -> pkg_models.SrcPkgId:
+        return pkg_models.SrcPkgId(self.name)
+
+
 class SnapshotChanges(pydantic.BaseModel):
-    add: typing.Annotated[
-        list[pkg_models.SrcPkgId], pydantic.BeforeValidator(pkg_models.src_pkg_id_list_validator)
-    ]
+    add: list[SnapshotChangeAdd]
     remove: typing.Annotated[
         list[pkg_models.SrcPkgId], pydantic.BeforeValidator(pkg_models.src_pkg_id_list_validator)
     ]
-
-    @pydantic.field_serializer("add")
-    def serialize_add(self, add: list[pkg_models.SrcPkgId]) -> list[str]:
-        return [pkg_id.name for pkg_id in add]
+    update: list[SnapshotChangeUpdate]
 
     @pydantic.field_serializer("remove")
     def serialize_remove(self, remove: list[pkg_models.SrcPkgId]) -> list[str]:

@@ -11,7 +11,7 @@ root_snapshot_data = snapshot_models.SnapshotModel(
     name="root",
     pkgs=[],
     ancestor=None,
-    changes=snapshot_models.SnapshotChanges(add=[], remove=[]),
+    changes=snapshot_models.SnapshotChanges(add=[], remove=[], update=[]),
 )
 
 dummy_snapshot_data = snapshot_models.SnapshotModel.model_validate(
@@ -35,7 +35,7 @@ dummy_snapshot_data = snapshot_models.SnapshotModel.model_validate(
             },
         ],
         "ancestor": "root",
-        "changes": {"add": [], "remove": []},
+        "changes": {"add": [], "remove": [], "update": []},
     }
 )
 

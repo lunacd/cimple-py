@@ -144,7 +144,7 @@ class CimpleSnapshot:
             raise RuntimeError(f"Snapshot {snapshot_name} already exists!")
 
         with snapshot_manifest.open("w") as f:
-            f.write(snapshot_data.model_dump_json())
+            f.write(snapshot_data.model_dump_json(by_alias=True))
 
     def add_src_pkg(
         self,
@@ -167,10 +167,14 @@ class CimpleSnapshot:
             pkg_type="src",
         )
         self.src_pkg_map[pkg_id] = new_src_pkg
-        self.changes.add.append(pkg_id)
 
         # Add package to changes
-        self.changes.add.append(pkg_id)
+        self.changes.add.append(
+            cimple.models.snapshot.SnapshotChangeAdd(
+                name=pkg_id.name,
+                version=pkg_version,
+            )
+        )
 
         # Add package to graph
         self.graph.add_node(pkg_id)
@@ -250,7 +254,7 @@ def load_snapshot(name: str) -> CimpleSnapshot:
             name="root",
             pkgs=[],
             ancestor="root",
-            changes=snapshot_models.SnapshotChanges(add=[], remove=[]),
+            changes=snapshot_models.SnapshotChanges(add=[], remove=[], update=[]),
         )
     else:
         snapshot_path = cimple.constants.cimple_snapshot_dir / f"{name}.json"
