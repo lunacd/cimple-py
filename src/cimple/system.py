@@ -1,7 +1,9 @@
+import functools
 import pathlib
 import platform
 
 
+@functools.cache
 def platform_name() -> str:
     """
     Returns the name of the current platform.
