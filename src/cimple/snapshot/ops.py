@@ -60,7 +60,8 @@ def add(
         for dep in package_dependencies[package.id].build_depends:
             if dep not in new_snapshot.bin_pkg_map:
                 raise RuntimeError(
-                    f"Build dependency {dep} for package {package.id.name} not found in snapshot"
+                    f"Build dependency {dep.name} for package {package.id.name} not found in"
+                    " snapshot"
                 )
         for bin_dep_list in package_dependencies[package.id].depends.values():
             for dep in bin_dep_list:
