@@ -1,5 +1,4 @@
 import collections.abc
-import copy
 import datetime
 import itertools
 import typing
@@ -85,14 +84,6 @@ class CimpleSnapshot:
         self.name = snapshot_data.name
         self.ancestor = snapshot_data.ancestor
         self.changes = snapshot_data.changes
-
-    @staticmethod
-    def create_from(origin_snapshot: CimpleSnapshot) -> CimpleSnapshot:
-        new_snapshot = copy.deepcopy(origin_snapshot)
-        new_snapshot.changes = []
-        new_snapshot.ancestor = origin_snapshot.name
-        new_snapshot.name = datetime.datetime.now(tz=datetime.UTC).strftime("%Y%m%d-%H%M%S")
-        return new_snapshot
 
     def _binary_neighbors(
         self,
