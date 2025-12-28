@@ -72,7 +72,7 @@ def test_merge_env():
 )
 def test_filter_msvc_path():
     # GIVEN: a PATH string containing MSVC and non-MSVC paths
-    msvc_path = "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\x64"
+    msvc_path = "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\x64"
     non_msvc_path = "C:\\SomeOtherPath"
     full_path = os.pathsep.join([msvc_path, non_msvc_path])
 
