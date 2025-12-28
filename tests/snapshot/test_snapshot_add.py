@@ -5,6 +5,8 @@ import typing
 import pytest
 
 import cimple.constants
+import cimple.models
+import cimple.models.pkg
 import cimple.snapshot.core
 from cimple.models import pkg as pkg_models
 from cimple.snapshot import ops as snapshot_ops
@@ -19,7 +21,7 @@ if typing.TYPE_CHECKING:
 
 
 @pytest.mark.usefixtures("basic_cimple_store")
-def test_snapshot_add_unresolvable_dep(
+def test_snapshot_add_unresolvable_binary_dep(
     cimple_pi: pathlib.Path,
     cygwin_release_content_side_effect: typing.Callable[
         [str], tests.conftest.MockHttpResponse | tests.conftest.MockHttp404Response
@@ -44,6 +46,39 @@ def test_snapshot_add_unresolvable_dep(
             [
                 snapshot_ops.VersionedSourcePackage(
                     id=pkg_models.SrcPkgId("make"), version="4.4.1-2"
+                )
+            ],
+            cimple_pi,
+            parallel=1,
+        )
+
+
+@pytest.mark.usefixtures("basic_cimple_store")
+def test_snapshot_add_unresolvable_build_dep(
+    cimple_pi: pathlib.Path,
+    cygwin_release_content_side_effect: typing.Callable[
+        [str], tests.conftest.MockHttpResponse | tests.conftest.MockHttp404Response
+    ],
+    mocker: MockerFixture,
+    helpers: tests.conftest.Helpers,
+):
+    # GIVEN: a root snapshot
+    _ = mocker.patch(
+        "cimple.pkg.cygwin.requests.get", side_effect=cygwin_release_content_side_effect
+    )
+    root_snapshot = helpers.mock_cimple_snapshot([cimple.models.pkg.BinPkgId("pkg2-bin")])
+
+    # WHEN: adding a package to the snapshot
+    # THEN: an exception is raised because cygwin is not in the snapshot
+    with pytest.raises(
+        RuntimeError,
+        match="Build dependency pkg1-bin for package custom not found in snapshot",
+    ):
+        _ = snapshot_ops.add(
+            root_snapshot,
+            [
+                snapshot_ops.VersionedSourcePackage(
+                    id=pkg_models.SrcPkgId("custom"), version="0.0.1-1"
                 )
             ],
             cimple_pi,
