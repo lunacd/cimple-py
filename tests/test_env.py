@@ -34,7 +34,9 @@ def test_window_baseline_env():
     assert "SYSTEMROOT" in env
     assert "SYSTEMDRIVE" in env
     assert "PATH" in env
-    assert "C:\\WINDOWS\\System32" in env["PATH"]
+
+    # Windows paths are case-insensitive, normalize to uppercase for assertion
+    assert "C:\\WINDOWS\\SYSTEM32" in env["PATH"].upper()
 
 
 @pytest.mark.skipif(
