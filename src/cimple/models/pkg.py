@@ -28,6 +28,10 @@ class BinPkgId:
         return hash(f"bin:{self.name}")
 
 
+def is_bin_pkg_list(pkgs: list[PkgId]) -> typing.TypeGuard[list[BinPkgId]]:
+    return all(pkg.type == "bin" for pkg in pkgs)
+
+
 PkgId = SrcPkgId | BinPkgId
 
 
