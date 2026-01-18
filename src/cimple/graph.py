@@ -1,8 +1,9 @@
 from typing import TYPE_CHECKING
 
-import networkx as nx
-
 import cimple.models.pkg
+
+if TYPE_CHECKING:
+    import networkx as nx
 
 
 class BuildGraph:
