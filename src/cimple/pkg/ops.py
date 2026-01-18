@@ -10,6 +10,7 @@ import requests
 import cimple.constants
 import cimple.hash
 import cimple.logging
+import cimple.pkg.core
 import cimple.process
 import cimple.snapshot.core as snapshot_core
 import cimple.str_interpolation
@@ -20,12 +21,6 @@ from cimple.models import pkg as pkg_models
 from cimple.models import pkg_config as pkg_config_models
 from cimple.models import snapshot as snapshot_models
 from cimple.pkg import cygwin as pkg_cygwin
-
-
-@dataclasses.dataclass
-class PackageDependencies:
-    build_depends: list[pkg_models.BinPkgId]
-    depends: dict[pkg_models.BinPkgId, list[pkg_models.BinPkgId]]
 
 
 @dataclasses.dataclass
@@ -290,10 +285,9 @@ class PkgOps:
 
     def resolve_dependencies(
         self, package_id: pkg_models.SrcPkgId, package_version: str, *, pi_path: pathlib.Path
-    ) -> PackageDependencies:
+    ) -> cimple.pkg.core.PackageDependencies:
         config = pkg_config_models.load_pkg_config(pi_path, package_id, package_version)
         if config.root.pkg_type == "custom":
-            # TODO: figure out multiple binary package for custom package
             depends: dict[pkg_models.BinPkgId, list[pkg_models.BinPkgId]] = {
                 bin_pkg: bin_pkg_data.depends
                 for bin_pkg, bin_pkg_data in config.root.binaries.items()
@@ -312,4 +306,6 @@ class PkgOps:
             }
         else:
             raise RuntimeError(f"Unknown package type {config.root.pkg_type}")
-        return PackageDependencies(build_depends=config.root.build_depends, depends=depends)
+        return cimple.pkg.core.PackageDependencies(
+            build_depends=config.root.build_depends, depends=depends
+        )
