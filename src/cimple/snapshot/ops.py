@@ -6,6 +6,7 @@ import typing
 
 import pydantic
 
+import cimple.pkg.core
 import cimple.pkg.ops
 from cimple import constants, logging, util
 from cimple import hash as cimple_hash
@@ -46,7 +47,7 @@ def add(
 
     # Resolve dependencies
     logging.info("Resolving dependencies")
-    package_dependencies: dict[pkg_models.SrcPkgId, pkg_ops.PackageDependencies] = {}
+    package_dependencies: dict[pkg_models.SrcPkgId, cimple.pkg.core.PackageDependencies] = {}
     binaries_will_built: set[pkg_models.BinPkgId] = set()
     for package in packages_to_build:
         dependency_data = pkg_processor.resolve_dependencies(
