@@ -2,6 +2,7 @@ import pytest
 
 import cimple.models.pkg_config
 import cimple.models.snapshot
+import cimple.models.stream
 
 
 @pytest.mark.parametrize(
@@ -81,3 +82,26 @@ def test_snapshot_model_round_trip(snapshot):
 
     # THEN: the result matches the original snapshot data
     assert result == snapshot
+
+
+@pytest.mark.parametrize(
+    "stream",
+    [
+        {
+            "schema_version": "0",
+            "bootstrap_pkgs": ["pkgA", "pkgB"],
+            "toolchain_pkgs": ["pkgC"],
+            "pkgs": [
+                {"name": "pkg1", "version": "1.0"},
+                {"name": "pkg2", "version": "2.0"},
+            ],
+        }
+    ],
+)
+def test_stream_model_round_trip(stream):
+    # WHEN: loading and then serializing a stream model
+    model = cimple.models.stream.Stream.model_validate(stream)
+    result = model.model_dump()
+
+    # THEN: the result matches the original stream data
+    assert result == stream
