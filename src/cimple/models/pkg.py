@@ -1,6 +1,8 @@
 import dataclasses
 import typing
 
+import pydantic
+
 
 @dataclasses.dataclass
 class SrcPkgId:
@@ -26,6 +28,15 @@ class BinPkgId:
 
     def __hash__(self):
         return hash(f"bin:{self.name}")
+
+
+class VersionedSrcPkg(pydantic.BaseModel):
+    name: str
+    version: str
+
+    @property
+    def id(self) -> SrcPkgId:
+        return SrcPkgId(self.name)
 
 
 def is_bin_pkg_list(pkgs: list[PkgId]) -> typing.TypeGuard[list[BinPkgId]]:
