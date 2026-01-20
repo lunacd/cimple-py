@@ -106,8 +106,7 @@ class PkgConfigCustom(pydantic.BaseModel):
 
     @property
     def binary_packages(self) -> list[models_pkg.BinPkgId]:
-        # TODO: support multiple binaries per source
-        return [models_pkg.BinPkgId(self.name)]
+        return list(self.binaries.keys())
 
     @property
     def build_depends(self) -> list[models_pkg.BinPkgId]:

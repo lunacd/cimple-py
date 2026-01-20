@@ -1,4 +1,3 @@
-import collections.abc
 import datetime
 import itertools
 import typing
@@ -6,13 +5,17 @@ import typing
 import networkx as nx
 
 import cimple.constants
+import cimple.graph
 import cimple.models
+import cimple.models.pkg_config
 import cimple.models.snapshot
+import cimple.pkg.core
+import cimple.pkg.ops
 from cimple.models import pkg as pkg_models
 from cimple.models import snapshot as snapshot_models
 
 if typing.TYPE_CHECKING:
-    import collections.abc
+    import pathlib
 
 
 class CimpleSnapshot:
@@ -85,26 +88,15 @@ class CimpleSnapshot:
         self.ancestor = snapshot_data.ancestor
         self.changes = snapshot_data.changes
 
-    def _binary_neighbors(
-        self,
-        node: pkg_models.PkgId,
-    ) -> collections.abc.Generator[pkg_models.PkgId]:
-        """
-        Get the binary package neighbors of a given node.
-
-        Given how the dependency graph is constructed, this will yield:
-        - For a source package: all binary packages it build-depends on.
-        - For a binary package: all binary packages it depends on.
-        """
-        for neighbor in nx.neighbors(self.graph, node):
-            if neighbor.type == "bin":
-                yield neighbor
-
     def build_depends_of(self, src_pkg: pkg_models.SrcPkgId) -> list[pkg_models.BinPkgId]:
         """
         Get all binary packages that are required during the build a source package.
         """
-        edges = nx.generic_bfs_edges(self.graph, src_pkg, neighbors=self._binary_neighbors)
+        edges = nx.generic_bfs_edges(
+            self.graph,
+            src_pkg,
+            neighbors=lambda node: cimple.graph.binary_neighbors(self.graph, node),
+        )
         descendants: list[pkg_models.BinPkgId] = []
         for _, node in edges:
             assert node.type == "bin"
@@ -115,7 +107,11 @@ class CimpleSnapshot:
         """
         Get all binary packages that are required at runtime by a binary package.
         """
-        edges = nx.generic_bfs_edges(self.graph, bin_pkg, neighbors=self._binary_neighbors)
+        edges = nx.generic_bfs_edges(
+            self.graph,
+            bin_pkg,
+            neighbors=lambda node: cimple.graph.binary_neighbors(self.graph, node),
+        )
         descendants: list[pkg_models.BinPkgId] = []
         for _, node in edges:
             assert node.type == "bin"
@@ -126,11 +122,17 @@ class CimpleSnapshot:
         """
         Dump the snapshot to a JSON file.
         """
+        # Check that binary packages have their SHA256 filled in
+        for bin_pkg in self.bin_pkg_map.values():
+            if not bin_pkg.sha256 or bin_pkg.sha256 == "placeholder":
+                raise RuntimeError(f"Binary package {bin_pkg.name} has no valid SHA256!")
+
         snapshot_name = datetime.datetime.now(tz=datetime.UTC).strftime("%Y%m%d-%H%M%S")
         pkgs = [
             cimple.models.snapshot.SnapshotPkg(pkg)
             for pkg in itertools.chain(self.src_pkg_map.values(), self.bin_pkg_map.values())
         ]
+
         snapshot_data = snapshot_models.SnapshotModel(
             version=self.version,
             name=snapshot_name,
@@ -153,7 +155,8 @@ class CimpleSnapshot:
         build_depends: list[pkg_models.BinPkgId],
     ) -> None:
         """
-        Add a package to the snapshot.
+        Add a source package to the snapshot.
+        This does not add its binary packages; they should be added separately.
         """
         if pkg_id in self.src_pkg_map:
             raise RuntimeError(f"Package {pkg_id} already exists in snapshot.")
@@ -191,8 +194,7 @@ class CimpleSnapshot:
         """
         Add a binary package to the snapshot.
         """
-        if pkg_id in self.bin_pkg_map:
-            raise RuntimeError(f"Package {pkg_id} already exists in snapshot.")
+        assert pkg_id not in self.bin_pkg_map, f"Package {pkg_id} already exists in snapshot."
 
         # Add package to snapshot map
         new_bin_pkg = snapshot_models.SnapshotBinPkg.model_construct(
@@ -207,13 +209,131 @@ class CimpleSnapshot:
         # Add binary package to its source package
         assert src_pkg in self.src_pkg_map, f"Source package {src_pkg} not found in snapshot."
         src_snapshot_pkg = self.src_pkg_map[src_pkg]
-        assert snapshot_models.snapshot_pkg_is_src(src_snapshot_pkg)
         src_snapshot_pkg.binary_packages.append(pkg_id)
 
         # Add package to graph
         self.graph.add_node(pkg_id)
         for dep in depends:
             self.graph.add_edge(pkg_id, dep)
+
+    def add_pkg(
+        self,
+        pkg_config: cimple.models.pkg_config.PkgConfig,
+        dependency_data: cimple.pkg.core.PackageDependencies,
+    ) -> None:
+        """
+        Add a package and its binary packages to the snapshot.
+        This is a convenience method that dispatches add_src_pkg and add_bin_pkg.
+        """
+        self.add_src_pkg(
+            pkg_id=pkg_models.SrcPkgId(pkg_config.root.name),
+            pkg_version=pkg_config.root.version,
+            build_depends=dependency_data.build_depends,
+        )
+        for binary_package in pkg_config.root.binary_packages:
+            if binary_package in self.bin_pkg_map:
+                raise RuntimeError(f"Binary package {binary_package} already exists in snapshot.")
+            self.add_bin_pkg(
+                pkg_id=binary_package,
+                src_pkg=pkg_config.root.id,
+                pkg_sha256="placeholder",  # SHA will be filled in separately
+                depends=dependency_data.depends[binary_package],
+            )
+
+    def remove_pkg(self, pkg_id: pkg_models.SrcPkgId) -> None:
+        """
+        Remove a source package and its binary packages from the snapshot.
+        """
+        assert pkg_id in self.src_pkg_map, f"Package {pkg_id} does not exist in snapshot."
+
+        # Remove binary packages first
+        src_snapshot_pkg = self.src_pkg_map[pkg_id]
+        for bin_pkg_id in src_snapshot_pkg.binary_packages:
+            bin_pkg_data = self.bin_pkg_map[bin_pkg_id]
+
+            # Remove all dependency edges for this binary package
+            for dep in bin_pkg_data.depends:
+                self.graph.remove_edge(bin_pkg_id, dep)
+
+            del self.bin_pkg_map[bin_pkg_id]
+            self.graph.remove_node(bin_pkg_id)
+
+        # Remove all build dependency edges for this source package
+        for dep in src_snapshot_pkg.build_depends:
+            self.graph.remove_edge(pkg_id, dep)
+
+        # Remove source package
+        del self.src_pkg_map[pkg_id]
+        self.graph.remove_node(pkg_id)
+
+    def validate_depends(self, pkg_id: pkg_models.SrcPkgId) -> bool:
+        """
+        Validate that all build and runtime dependencies of a source package are satisfied.
+        """
+        assert pkg_id in self.src_pkg_map, f"Package {pkg_id} does not exist in snapshot."
+
+        src_snapshot_pkg = self.src_pkg_map[pkg_id]
+
+        # Validate build dependencies
+        for build_dep in src_snapshot_pkg.build_depends:
+            if build_dep not in self.bin_pkg_map:
+                return False
+
+        # Validate runtime dependencies for each binary package
+        for bin_pkg_id in src_snapshot_pkg.binary_packages:
+            bin_snapshot_pkg = self.bin_pkg_map[bin_pkg_id]
+            for runtime_dep in bin_snapshot_pkg.depends:
+                if runtime_dep not in self.bin_pkg_map:
+                    return False
+
+        return True
+
+    def update_with_changes(
+        self,
+        *,
+        changes: cimple.models.snapshot.SnapshotChanges,
+        pkg_processor: cimple.pkg.ops.PkgOps,
+        pkg_index_path: pathlib.Path,
+    ):
+        """
+        Compute the build order for the packages to be added/updated.
+        Also computes the new build dependency graph as part of the process.
+        """
+        # First process additions, because updates may depend on newly added packages
+        for pkg_add in changes.add:
+            dependency_data = pkg_processor.resolve_dependencies(
+                pkg_add.id, pkg_add.version, pi_path=pkg_index_path
+            )
+            config = cimple.models.pkg_config.load_pkg_config(
+                pkg_index_path, pkg_add.id, pkg_add.version
+            )
+            self.add_pkg(config, dependency_data)
+
+        # Then process updates
+        for pkg_update in changes.update:
+            # Remove old package
+            self.remove_pkg(pkg_update.id)
+
+            # Add new package
+            config = cimple.models.pkg_config.load_pkg_config(
+                pkg_index_path, pkg_models.SrcPkgId(pkg_update.name), pkg_update.to_version
+            )
+            dependency_data = pkg_processor.resolve_dependencies(
+                pkg_models.SrcPkgId(pkg_update.name),
+                pkg_update.to_version,
+                pi_path=pkg_index_path,
+            )
+            self.add_pkg(config, dependency_data)
+
+        # Finally process removal
+        for pkg_remove in changes.remove:
+            self.remove_pkg(pkg_remove)
+
+        # Resolve all build and runtime dependencies and make sure they are satisfied
+        for pkg in itertools.chain(changes.add, changes.update):
+            deps_are_valid = self.validate_depends(pkg.id)
+            if not deps_are_valid:
+                raise RuntimeError(f"Unable to resolve dependencies for package {pkg.id.name}")
 
     def compare_pkgs_with(self, rhs: CimpleSnapshot) -> None | pkg_models.PkgId:
         """
