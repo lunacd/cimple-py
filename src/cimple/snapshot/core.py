@@ -118,24 +118,6 @@ class CimpleSnapshot:
             descendants.append(node)
         return descendants
 
-    def build_dependents_of(self, src_pkg: pkg_models.SrcPkgId) -> list[pkg_models.SrcPkgId]:
-        """
-        Get all source packages that depend on the given source package for building.
-        """
-        reversed_graph = self.graph.reverse(copy=False)
-        produced_binary_pkgs = self.src_pkg_map[src_pkg].binary_packages
-        ancestors: list[pkg_models.SrcPkgId] = []
-        for bin_pkg in produced_binary_pkgs:
-            edges = nx.generic_bfs_edges(
-                reversed_graph,
-                bin_pkg,
-                neighbors=lambda node: cimple.graph.src_neighbors(reversed_graph, node),
-            )
-            for _, node in edges:
-                assert node.type == "src"
-                ancestors.append(node)
-        return ancestors
-
     def dump_snapshot(self):
         """
         Dump the snapshot to a JSON file.

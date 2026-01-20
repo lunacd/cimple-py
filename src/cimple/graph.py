@@ -8,22 +8,6 @@ if TYPE_CHECKING:
     import collections.abc
 
 
-def src_neighbors(
-    graph: nx.DiGraph[cimple.models.pkg.PkgId],
-    node: cimple.models.pkg.PkgId,
-) -> collections.abc.Generator[cimple.models.pkg.PkgId]:
-    """
-    Get the binary package neighbors of a given node.
-
-    In a reversed graph, this will yield:
-    - For a binary package: all source packages that build depend on it.
-    - For a source package: nothing.
-    """
-    for neighbor in nx.neighbors(graph, node):
-        if neighbor.type == "src":
-            yield neighbor
-
-
 def binary_neighbors(
     graph: nx.DiGraph[cimple.models.pkg.PkgId],
     node: cimple.models.pkg.PkgId,
