@@ -1,9 +1,43 @@
 from typing import TYPE_CHECKING
 
+import networkx as nx
+
 import cimple.models.pkg
 
 if TYPE_CHECKING:
-    import networkx as nx
+    import collections.abc
+
+
+def src_neighbors(
+    graph: nx.DiGraph[cimple.models.pkg.PkgId],
+    node: cimple.models.pkg.PkgId,
+) -> collections.abc.Generator[cimple.models.pkg.PkgId]:
+    """
+    Get the binary package neighbors of a given node.
+
+    In a reversed graph, this will yield:
+    - For a binary package: all source packages that build depend on it.
+    - For a source package: nothing.
+    """
+    for neighbor in nx.neighbors(graph, node):
+        if neighbor.type == "src":
+            yield neighbor
+
+
+def binary_neighbors(
+    graph: nx.DiGraph[cimple.models.pkg.PkgId],
+    node: cimple.models.pkg.PkgId,
+) -> collections.abc.Generator[cimple.models.pkg.PkgId]:
+    """
+    Get the binary package neighbors of a given node.
+
+    Given how the dependency graph is constructed, this will yield:
+    - For a source package: all binary packages it build-depends on.
+    - For a binary package: all binary packages it depends on.
+    """
+    for neighbor in nx.neighbors(graph, node):
+        if neighbor.type == "bin":
+            yield neighbor
 
 
 class BuildGraph:
