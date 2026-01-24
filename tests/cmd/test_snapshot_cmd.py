@@ -1,5 +1,4 @@
 import pathlib
-from unittest.mock import call
 
 import cimple
 import cimple.models.snapshot
