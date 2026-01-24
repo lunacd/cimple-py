@@ -55,6 +55,7 @@ def compute_build_graph(
         )
     )
 
+
 def add(
     origin_snapshot: cimple.snapshot.core.CimpleSnapshot,
     packages: list[VersionedSourcePackage],
