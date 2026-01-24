@@ -4,18 +4,19 @@ import tarfile
 import tempfile
 import typing
 
+import networkx as nx
 import pydantic
 
+import cimple.graph
+import cimple.models.snapshot
 import cimple.pkg.core
 import cimple.pkg.ops
+import cimple.snapshot.core
 from cimple import constants, logging, util
 from cimple import hash as cimple_hash
 from cimple import tarfile as cimple_tarfile
 from cimple.models import pkg as pkg_models
 from cimple.pkg import ops as pkg_ops
-
-if typing.TYPE_CHECKING:
-    from cimple.snapshot import core as snapshot_core
 
 
 class VersionedSourcePackage(pydantic.BaseModel):
@@ -23,13 +24,44 @@ class VersionedSourcePackage(pydantic.BaseModel):
     version: str
 
 
+def compute_build_graph(
+    snapshot: cimple.snapshot.core.CimpleSnapshot, changes: cimple.models.snapshot.SnapshotChanges
+) -> cimple.graph.BuildGraph:
+    """
+    Compute the build order for the packages in the snapshot.
+
+    The given snapshot needs to already have the changes applied to it.
+
+    The returned graph is a requirement graph, where an edge from A -> B means A requires B to be
+    available first. This is essentially the reverse of the dependency graph.
+    """
+    requirement_graph: nx.DiGraph[pkg_models.PkgId] = snapshot.graph.reverse(copy=True)
+
+    pkgs_to_build = set()
+
+    # All added packages need to be built
+    for pkg_add in changes.add:
+        pkgs_to_build.add(pkg_add.id)
+
+    # All updated packages and their dependents need to be built
+    for pkg_update in changes.update:
+        pkgs_to_build.add(pkg_update.id)
+        pkgs_to_build.update(nx.descendants(requirement_graph, pkg_update.id))
+
+    # Get subgraph of packages to build
+    return cimple.graph.BuildGraph(
+        typing.cast(
+            "nx.DiGraph[pkg_models.PkgId]", requirement_graph.subgraph(pkgs_to_build).copy()
+        )
+    )
+
 def add(
-    origin_snapshot: snapshot_core.CimpleSnapshot,
+    origin_snapshot: cimple.snapshot.core.CimpleSnapshot,
     packages: list[VersionedSourcePackage],
     pkg_index_path: pathlib.Path,
     parallel: int,
     extra_paths: list[pathlib.Path] | None = None,
-) -> snapshot_core.CimpleSnapshot:
+) -> cimple.snapshot.core.CimpleSnapshot:
     if extra_paths is None:
         extra_paths = []
 
