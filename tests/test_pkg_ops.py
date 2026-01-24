@@ -19,8 +19,8 @@ if typing.TYPE_CHECKING:
 def test_build_pkg_custom_with_cimple_pi(cimple_pi: pathlib.Path, mocker: MockerFixture):
     # GIVEN: a real source package to build
     package_id = pkg_models.SrcPkgId("custom")
-    package_version = "0.0.1-1"
     cimple_snapshot = snapshot_core.load_snapshot("test-snapshot")
+    cimple_snapshot.add_src_pkg(package_id, "0.0.1-1", [])
     return_process = unittest.mock.Mock()
     return_process.returncode = 0
     run_command_mock = mocker.patch(
@@ -31,7 +31,6 @@ def test_build_pkg_custom_with_cimple_pi(cimple_pi: pathlib.Path, mocker: Mocker
     # WHEN: building a custom package
     result = uut.build_pkg(
         package_id,
-        package_version,
         pi_path=cimple_pi,
         cimple_snapshot=cimple_snapshot,
         build_options=pkg_ops.PackageBuildOptions(
@@ -52,8 +51,8 @@ def test_build_pkg_custom_with_cimple_pi(cimple_pi: pathlib.Path, mocker: Mocker
 def test_build_pkg_custom_with_multiple_binaries(cimple_pi: pathlib.Path, mocker: MockerFixture):
     # GIVEN: a real source package to build
     package_id = pkg_models.SrcPkgId("multiple_binaries")
-    package_version = "0.0.1-1"
     cimple_snapshot = snapshot_core.load_snapshot("test-snapshot")
+    cimple_snapshot.add_src_pkg(package_id, "0.0.1-1", [])
     return_process = unittest.mock.Mock()
     return_process.returncode = 0
     run_command_mock = mocker.patch(
@@ -64,7 +63,6 @@ def test_build_pkg_custom_with_multiple_binaries(cimple_pi: pathlib.Path, mocker
     # WHEN: building a custom package
     result = uut.build_pkg(
         package_id,
-        package_version,
         pi_path=cimple_pi,
         cimple_snapshot=cimple_snapshot,
         build_options=pkg_ops.PackageBuildOptions(
@@ -100,12 +98,12 @@ def test_build_cygwin_pkg(
         "cimple.pkg.cygwin.requests.get", side_effect=cygwin_release_content_side_effect
     )
     cimple_snapshot = snapshot_core.load_snapshot("root")
+    cimple_snapshot.add_src_pkg(pkg_models.SrcPkgId("make"), "4.4.1-2", [])
     uut = pkg_ops.PkgOps()
 
     # WHEN: Building a Cygwin package (make)
     output_paths = uut.build_pkg(
         pkg_models.SrcPkgId("make"),
-        "4.4.1-2",
         pi_path=cimple_pi,
         cimple_snapshot=cimple_snapshot,
         build_options=pkg_ops.PackageBuildOptions(parallel=2),
