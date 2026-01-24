@@ -1,5 +1,7 @@
 import pathlib
 
+import pytest
+
 import cimple
 import cimple.models.snapshot
 from cimple.cmd import snapshot as snapshot_cmd
@@ -49,6 +51,7 @@ def load_snapshot_side_effect(snapshot_name: str) -> snapshot_core.CimpleSnapsho
     raise NotImplementedError
 
 
+@pytest.mark.usefixtures("fs")
 def test_snapshot_change(mocker):
     # GIVEN: a dummy snapshot
     snapshot_name = "dummy"

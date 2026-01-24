@@ -11,6 +11,7 @@ import cimple.models.pkg_config
 import cimple.models.snapshot
 import cimple.pkg.core
 import cimple.pkg.ops
+import cimple.util
 from cimple.models import pkg as pkg_models
 from cimple.models import snapshot as snapshot_models
 
@@ -148,6 +149,7 @@ class CimpleSnapshot:
             changes=self.changes,
         )
 
+        cimple.util.ensure_path(cimple.constants.cimple_snapshot_dir)
         snapshot_manifest = cimple.constants.cimple_snapshot_dir / f"{snapshot_name}.json"
         if snapshot_manifest.exists():
             raise RuntimeError(f"Snapshot {snapshot_name} already exists!")
