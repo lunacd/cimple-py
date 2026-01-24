@@ -1,13 +1,7 @@
-import pathlib
-import typing
-
 import typer
 
 import cimple.cmd.snapshot
 import cimple.images as images
-from cimple.models import pkg as pkg_models
-from cimple.pkg import ops as pkg_ops
-from cimple.snapshot import core as snapshot_core
 
 app = typer.Typer()
 app.add_typer(cimple.cmd.snapshot.snapshot_app, name="snapshot")
