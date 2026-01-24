@@ -11,6 +11,7 @@ import cimple.models.pkg_config
 import cimple.models.snapshot
 import cimple.pkg.core
 import cimple.pkg.ops
+import cimple.util
 from cimple.models import pkg as pkg_models
 from cimple.models import snapshot as snapshot_models
 
@@ -118,14 +119,21 @@ class CimpleSnapshot:
             descendants.append(node)
         return descendants
 
+    def binary_pkgs_are_complete(self) -> bool:
+        """
+        Check that all binary packages in the snapshot have their SHA256 filled in.
+        """
+        return all(bin_pkg.sha256 != "placeholder" for bin_pkg in self.bin_pkg_map.values())
+
     def dump_snapshot(self):
         """
         Dump the snapshot to a JSON file.
         """
         # Check that binary packages have their SHA256 filled in
-        for bin_pkg in self.bin_pkg_map.values():
-            if not bin_pkg.sha256 or bin_pkg.sha256 == "placeholder":
-                raise RuntimeError(f"Binary package {bin_pkg.name} has no valid SHA256!")
+        if not self.binary_pkgs_are_complete():
+            raise RuntimeError(
+                "Cannot dump snapshot: some binary packages have placeholder SHA256."
+            )
 
         snapshot_name = datetime.datetime.now(tz=datetime.UTC).strftime("%Y%m%d-%H%M%S")
         pkgs = [
@@ -141,6 +149,7 @@ class CimpleSnapshot:
             changes=self.changes,
         )
 
+        cimple.util.ensure_path(cimple.constants.cimple_snapshot_dir)
         snapshot_manifest = cimple.constants.cimple_snapshot_dir / f"{snapshot_name}.json"
         if snapshot_manifest.exists():
             raise RuntimeError(f"Snapshot {snapshot_name} already exists!")

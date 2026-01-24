@@ -1,4 +1,3 @@
-import copy
 import pathlib
 import tarfile
 import tempfile
@@ -12,7 +11,7 @@ import cimple.models.snapshot
 import cimple.pkg.core
 import cimple.pkg.ops
 import cimple.snapshot.core
-from cimple import constants, logging, util
+from cimple import constants, logging
 from cimple import hash as cimple_hash
 from cimple import tarfile as cimple_tarfile
 from cimple.models import pkg as pkg_models
@@ -56,80 +55,33 @@ def compute_build_graph(
     )
 
 
-def add(
-    origin_snapshot: cimple.snapshot.core.CimpleSnapshot,
-    packages: list[VersionedSourcePackage],
+def execute_build_graph(
+    build_graph: cimple.graph.BuildGraph,
+    *,
+    snapshot: cimple.snapshot.core.CimpleSnapshot,
+    pkg_processor: pkg_ops.PkgOps,
     pkg_index_path: pathlib.Path,
     parallel: int,
     extra_paths: list[pathlib.Path] | None = None,
-) -> cimple.snapshot.core.CimpleSnapshot:
-    if extra_paths is None:
-        extra_paths = []
+):
+    """
+    Execute the build graph.
+    """
 
-    # Ensure needed paths exist
-    util.ensure_path(constants.cimple_snapshot_dir)
-    util.ensure_path(constants.cimple_pkg_dir)
-
-    new_snapshot = copy.deepcopy(origin_snapshot)
-
-    # TODO: walk dependency graph to determine the list of packages to build
-    # For now, assume it's only the added packages that needs building
-    packages_to_build = packages
-
-    pkg_processor = pkg_ops.PkgOps()
-
-    # Resolve dependencies
-    logging.info("Resolving dependencies")
-    package_dependencies: dict[pkg_models.SrcPkgId, cimple.pkg.core.PackageDependencies] = {}
-    binaries_will_built: set[pkg_models.BinPkgId] = set()
-    for package in packages_to_build:
-        dependency_data = pkg_processor.resolve_dependencies(
-            package.id, package.version, pi_path=pkg_index_path
-        )
-        package_dependencies[package.id] = dependency_data
-        for bin_pkg in dependency_data.depends:
-            binaries_will_built.add(bin_pkg)
-    for package in packages_to_build:
-        # Check build and runtime dependencies are available in the snapshot
-        for dep in package_dependencies[package.id].build_depends:
-            if dep not in new_snapshot.bin_pkg_map:
-                raise RuntimeError(
-                    f"Build dependency {dep.name} for package {package.id.name} not found in"
-                    " snapshot"
-                )
-        for bin_dep_list in package_dependencies[package.id].depends.values():
-            for dep in bin_dep_list:
-                # Binary dependencies can be either in the snapshot or produced by the package being
-                # built
-                if dep not in new_snapshot.bin_pkg_map and dep not in binaries_will_built:
-                    raise RuntimeError(
-                        f"Binary dependency {dep.name} for package {package.id.name}"
-                        " not found in snapshot"
-                    )
-
-    # Build package
-    for package in packages_to_build:
-        logging.info("Building %s-%s", package.id.name, package.version)
-
-        # Add package to snapshot
-        new_snapshot.add_src_pkg(
-            pkg_id=package.id,
-            pkg_version=package.version,
-            build_depends=package_dependencies[package.id].build_depends,
-        )
+    while not build_graph.is_empty():
+        [next_pkg] = build_graph.get_pkgs_to_build(max_count=1)
 
         # Build package
         output_paths = pkg_processor.build_pkg(
-            package.id,
-            package.version,
+            next_pkg,
             pi_path=pkg_index_path,
-            cimple_snapshot=new_snapshot,
+            cimple_snapshot=snapshot,
             build_options=cimple.pkg.ops.PackageBuildOptions(
-                parallel=parallel, extra_paths=extra_paths
+                parallel=parallel, extra_paths=extra_paths or []
             ),
         )
 
-        # Tar it up and add to snapshot
+        # Tar it up and add to pkg store
         # Initially tar it up in a generic name because the sha cannot yet be determined
         for binary_name, output_path in output_paths.items():
             with tempfile.TemporaryDirectory() as tmp_dir:
@@ -147,16 +99,46 @@ def add(
                 else:
                     _ = tar_path.rename(new_file_path)
 
+            # Commit SHA into snapshot
             bin_pkg_id = pkg_models.BinPkgId(binary_name)
-            new_snapshot.add_bin_pkg(
-                pkg_id=bin_pkg_id,
-                src_pkg=package.id,
-                pkg_sha256=tar_hash,
-                depends=package_dependencies[package.id].depends[bin_pkg_id],
-            )
+            snapshot.bin_pkg_map[bin_pkg_id].sha256 = tar_hash
 
-    return new_snapshot
+        # Mark package as built in the build graph
+        build_graph.mark_pkgs_built(next_pkg)
 
 
-def remove():
-    pass
+def process_changes(
+    origin_snapshot: cimple.snapshot.core.CimpleSnapshot,
+    changes: cimple.models.snapshot.SnapshotChanges,
+    pkg_index_path: pathlib.Path,
+    parallel: int,
+    extra_paths: list[pathlib.Path] | None = None,
+) -> None:
+    """
+    Process snapshot changes (add, remove, update).
+    """
+    pkg_processor = pkg_ops.PkgOps()
+
+    # Construct new snapshot graph
+    origin_snapshot.update_with_changes(
+        changes=changes,
+        pkg_processor=pkg_processor,
+        pkg_index_path=pkg_index_path,
+    )
+
+    # Compute build graph
+    build_graph = compute_build_graph(origin_snapshot, changes)
+
+    # Execute build graph
+    execute_build_graph(
+        build_graph,
+        snapshot=origin_snapshot,
+        pkg_processor=pkg_processor,
+        pkg_index_path=pkg_index_path,
+        parallel=parallel,
+        extra_paths=extra_paths,
+    )
+
+    # Make sure all binary packages are built, if not, there's a bug
+    if not origin_snapshot.binary_pkgs_are_complete():
+        raise RuntimeError("Not all binary packages have been built! This is a bug.")
