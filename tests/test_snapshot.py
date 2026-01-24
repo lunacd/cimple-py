@@ -193,20 +193,25 @@ class TestSnapshotOps:
             "cimple.pkg.cygwin.requests.get", side_effect=cygwin_release_content_side_effect
         )
         root_snapshot = helpers.mock_cimple_snapshot([])
+        changes = cimple.models.snapshot.SnapshotChanges.model_construct(
+            add=[
+                cimple.models.snapshot.SnapshotChangeAdd.model_construct(
+                    name="make", version="4.4.1-2"
+                )
+            ],
+            remove=[],
+            update=[],
+        )
 
         # WHEN: adding a package to the snapshot
         # THEN: an exception is raised because cygwin is not in the snapshot
         with pytest.raises(
             RuntimeError,
-            match="Binary dependency cygwin for package make not found in snapshot",
+            match="Unable to resolve dependencies for package make",
         ):
-            _ = cimple.snapshot.ops.add(
+            _ = cimple.snapshot.ops.process_changes(
                 root_snapshot,
-                [
-                    cimple.snapshot.ops.VersionedSourcePackage(
-                        id=cimple.models.pkg.SrcPkgId("make"), version="4.4.1-2"
-                    )
-                ],
+                changes,
                 cimple_pi,
                 parallel=1,
             )
@@ -226,20 +231,25 @@ class TestSnapshotOps:
             "cimple.pkg.cygwin.requests.get", side_effect=cygwin_release_content_side_effect
         )
         root_snapshot = helpers.mock_cimple_snapshot([cimple.models.pkg.BinPkgId("pkg2-bin")])
+        changes = cimple.models.snapshot.SnapshotChanges.model_construct(
+            add=[
+                cimple.models.snapshot.SnapshotChangeAdd.model_construct(
+                    name="custom", version="0.0.1-1"
+                )
+            ],
+            remove=[],
+            update=[],
+        )
 
         # WHEN: adding a package to the snapshot
         # THEN: an exception is raised because cygwin is not in the snapshot
         with pytest.raises(
             RuntimeError,
-            match="Build dependency pkg1-bin for package custom not found in snapshot",
+            match="Unable to resolve dependencies for package custom",
         ):
-            _ = cimple.snapshot.ops.add(
+            _ = cimple.snapshot.ops.process_changes(
                 root_snapshot,
-                [
-                    cimple.snapshot.ops.VersionedSourcePackage(
-                        id=cimple.models.pkg.SrcPkgId("custom"), version="0.0.1-1"
-                    )
-                ],
+                changes,
                 cimple_pi,
                 parallel=1,
             )
@@ -265,25 +275,30 @@ class TestSnapshotOps:
                 cimple.models.pkg.BinPkgId("libintl8"),
             ]
         )
-
-        # WHEN: adding a package to the snapshot
-        new_snapshot = cimple.snapshot.ops.add(
-            snapshot,
-            [
-                cimple.snapshot.ops.VersionedSourcePackage(
-                    id=cimple.models.pkg.SrcPkgId("make"), version="4.4.1-2"
+        changes = cimple.models.snapshot.SnapshotChanges.model_construct(
+            add=[
+                cimple.models.snapshot.SnapshotChangeAdd.model_construct(
+                    name="make", version="4.4.1-2"
                 )
             ],
+            remove=[],
+            update=[],
+        )
+
+        # WHEN: adding a package to the snapshot
+        cimple.snapshot.ops.process_changes(
+            snapshot,
+            changes,
             cimple_pi,
             parallel=1,
         )
 
         # THEN: the package should be in the snapshot
-        assert cimple.models.pkg.SrcPkgId("make") in new_snapshot.src_pkg_map
-        assert cimple.models.pkg.BinPkgId("make") in new_snapshot.bin_pkg_map
+        assert cimple.models.pkg.SrcPkgId("make") in snapshot.src_pkg_map
+        assert cimple.models.pkg.BinPkgId("make") in snapshot.bin_pkg_map
 
         # THEN: pkg exists in the pkg store
-        make_bin_pkg = new_snapshot.bin_pkg_map[cimple.models.pkg.BinPkgId("make")]
+        make_bin_pkg = snapshot.bin_pkg_map[cimple.models.pkg.BinPkgId("make")]
         sha256 = make_bin_pkg.sha256
         assert (cimple.constants.cimple_pkg_dir / f"make-{sha256}.tar.xz").exists()
 
@@ -316,30 +331,35 @@ class TestSnapshotOps:
                 cimple.models.pkg.BinPkgId("libiconv2"),
             ]
         )
+        changes = cimple.models.snapshot.SnapshotChanges.model_construct(
+            add=[
+                cimple.models.snapshot.SnapshotChangeAdd.model_construct(
+                    name="make", version="4.4.1-2"
+                ),
+                cimple.models.snapshot.SnapshotChangeAdd.model_construct(
+                    name="libintl8", version="0.22.5-1"
+                ),
+            ],
+            remove=[],
+            update=[],
+        )
 
         # WHEN: adding both make and cygwin to the snapshot
         # Note that cygwin is specified after make, in the reverse order of their dependency
         # relationship. This is to verify that the order of packages specified does not matter.
-        new_snapshot = cimple.snapshot.ops.add(
+        cimple.snapshot.ops.process_changes(
             snapshot,
-            [
-                cimple.snapshot.ops.VersionedSourcePackage(
-                    id=cimple.models.pkg.SrcPkgId("make"), version="4.4.1-2"
-                ),
-                cimple.snapshot.ops.VersionedSourcePackage(
-                    id=cimple.models.pkg.SrcPkgId("libintl8"), version="0.22.5-1"
-                ),
-            ],
+            changes,
             cimple_pi,
             parallel=1,
         )
 
         # THEN: the package should be in the snapshot
-        assert cimple.models.pkg.SrcPkgId("make") in new_snapshot.src_pkg_map
-        assert cimple.models.pkg.BinPkgId("make") in new_snapshot.bin_pkg_map
+        assert cimple.models.pkg.SrcPkgId("make") in snapshot.src_pkg_map
+        assert cimple.models.pkg.BinPkgId("make") in snapshot.bin_pkg_map
 
         # THEN: pkg exists in the pkg store
-        make_bin_pkg = new_snapshot.bin_pkg_map[cimple.models.pkg.BinPkgId("make")]
+        make_bin_pkg = snapshot.bin_pkg_map[cimple.models.pkg.BinPkgId("make")]
         sha256 = make_bin_pkg.sha256
         assert (cimple.constants.cimple_pkg_dir / f"make-{sha256}.tar.xz").exists()
 
@@ -367,25 +387,30 @@ class TestSnapshotOps:
                 "cimple.pkg.ops.PkgOps._build_custom_pkg",
                 return_value={"custom": dummy_output_path},
             )
-
-        # WHEN: adding a package to the snapshot
-        new_snapshot = cimple.snapshot.ops.add(
-            snapshot,
-            [
-                cimple.snapshot.ops.VersionedSourcePackage(
-                    id=cimple.models.pkg.SrcPkgId("custom"), version="0.0.1-1"
+        changes = cimple.models.snapshot.SnapshotChanges.model_construct(
+            add=[
+                cimple.models.snapshot.SnapshotChangeAdd.model_construct(
+                    name="custom", version="0.0.1-1"
                 )
             ],
+            remove=[],
+            update=[],
+        )
+
+        # WHEN: adding a package to the snapshot
+        cimple.snapshot.ops.process_changes(
+            snapshot,
+            changes,
             cimple_pi,
             parallel=1,
         )
 
         # THEN: the package should be in the snapshot
-        assert cimple.models.pkg.SrcPkgId("custom") in new_snapshot.src_pkg_map
-        assert cimple.models.pkg.BinPkgId("custom") in new_snapshot.bin_pkg_map
+        assert cimple.models.pkg.SrcPkgId("custom") in snapshot.src_pkg_map
+        assert cimple.models.pkg.BinPkgId("custom") in snapshot.bin_pkg_map
 
         # THEN: pkg exists in the pkg store
-        make_bin_pkg = new_snapshot.bin_pkg_map[cimple.models.pkg.BinPkgId("custom")]
+        make_bin_pkg = snapshot.bin_pkg_map[cimple.models.pkg.BinPkgId("custom")]
         sha256 = make_bin_pkg.sha256
         assert (cimple.constants.cimple_pkg_dir / f"custom-{sha256}.tar.xz").exists()
 

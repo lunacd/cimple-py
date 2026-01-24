@@ -262,12 +262,12 @@ class PkgOps:
     def build_pkg(
         self,
         package_id: pkg_models.SrcPkgId,
-        package_version: str,
         *,
         pi_path: pathlib.Path,
         cimple_snapshot: snapshot_core.CimpleSnapshot,
         build_options: PackageBuildOptions,
     ) -> dict[str, pathlib.Path]:
+        package_version = cimple_snapshot.src_pkg_map[package_id].version
         config = pkg_config_models.load_pkg_config(pi_path, package_id, package_version)
 
         match config.root.pkg_type:

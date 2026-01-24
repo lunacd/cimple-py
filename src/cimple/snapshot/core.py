@@ -118,14 +118,21 @@ class CimpleSnapshot:
             descendants.append(node)
         return descendants
 
+    def binary_pkgs_are_complete(self) -> bool:
+        """
+        Check that all binary packages in the snapshot have their SHA256 filled in.
+        """
+        return all(bin_pkg.sha256 != "placeholder" for bin_pkg in self.bin_pkg_map.values())
+
     def dump_snapshot(self):
         """
         Dump the snapshot to a JSON file.
         """
         # Check that binary packages have their SHA256 filled in
-        for bin_pkg in self.bin_pkg_map.values():
-            if not bin_pkg.sha256 or bin_pkg.sha256 == "placeholder":
-                raise RuntimeError(f"Binary package {bin_pkg.name} has no valid SHA256!")
+        if not self.binary_pkgs_are_complete():
+            raise RuntimeError(
+                "Cannot dump snapshot: some binary packages have placeholder SHA256."
+            )
 
         snapshot_name = datetime.datetime.now(tz=datetime.UTC).strftime("%Y%m%d-%H%M%S")
         pkgs = [

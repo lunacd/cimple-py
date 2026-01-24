@@ -1,10 +1,11 @@
 import pathlib
+from unittest.mock import call
 
+import cimple
+import cimple.models.snapshot
 from cimple.cmd import snapshot as snapshot_cmd
-from cimple.models import pkg as pkg_models
 from cimple.models import snapshot as snapshot_models
 from cimple.snapshot import core as snapshot_core
-from cimple.snapshot import ops as snapshot_ops
 
 root_snapshot_data = snapshot_models.SnapshotModel(
     version=0,
@@ -57,7 +58,7 @@ def test_snapshot_change(mocker):
         "cimple.cmd.snapshot.snapshot_core.load_snapshot",
         side_effect=load_snapshot_side_effect,
     )
-    add_mock = mocker.patch("cimple.cmd.snapshot.snapshot_ops.add")
+    add_mock = mocker.patch("cimple.cmd.snapshot.cimple.snapshot.ops.process_changes")
     dummy_snapshot_value = load_snapshot_side_effect(snapshot_name)
 
     # WHEN: a change command is invoked on it
@@ -69,10 +70,18 @@ def test_snapshot_change(mocker):
     load_snapshot_mock.assert_called_once_with(snapshot_name)
     add_mock.assert_called_once_with(
         origin_snapshot=dummy_snapshot_value,
-        packages=[
-            snapshot_ops.VersionedSourcePackage(id=pkg_models.SrcPkgId("pkg1"), version="1.0"),
-            snapshot_ops.VersionedSourcePackage(id=pkg_models.SrcPkgId("pkg2"), version="2.0"),
-        ],
+        changes=cimple.models.snapshot.SnapshotChanges(
+            add=[
+                cimple.models.snapshot.SnapshotChangeAdd.model_construct(
+                    name="pkg1", version="1.0"
+                ),
+                cimple.models.snapshot.SnapshotChangeAdd.model_construct(
+                    name="pkg2", version="2.0"
+                ),
+            ],
+            update=[],
+            remove=[],
+        ),
         pkg_index_path=pkg_index_path,
         parallel=2,
         extra_paths=[],
@@ -87,13 +96,15 @@ def test_snapshot_reproduce(mocker):
         "cimple.cmd.snapshot.snapshot_core.load_snapshot",
         side_effect=load_snapshot_side_effect,
     )
-    result_snapshot_mock = load_snapshot_side_effect("dummy")
-    compare_mock = mocker.patch.object(result_snapshot_mock, "compare_pkgs_with", return_value=None)
-    add_mock = mocker.patch(
-        "cimple.cmd.snapshot.snapshot_ops.add", return_value=result_snapshot_mock
-    )
+
+    # GIVEN: mocked out process_changes to track its invocation
+    process_changes_mock = mocker.patch("cimple.cmd.snapshot.cimple.snapshot.ops.process_changes")
+
+    # GIVEN: spy on compare_pkgs_with to track its invocation
+    compare_spy = mocker.spy(snapshot_core.CimpleSnapshot, "compare_pkgs_with")
+
     root_snapshot_value = load_snapshot_side_effect("root")
-    dummy_snapshot_value = load_snapshot_side_effect("dummy")
+    dummy_snapshot_value = load_snapshot_side_effect(snapshot_name)
 
     # WHEN: a reproduce command is invoked on it
     snapshot_cmd.reproduce(
@@ -106,15 +117,26 @@ def test_snapshot_reproduce(mocker):
     load_snapshot_mock.assert_any_call(snapshot_name)
     load_snapshot_mock.assert_any_call("root")
 
-    # THEN: add is called to reproduce the target snapshot
-    add_mock.assert_called_once_with(
-        root_snapshot_value,
-        [snapshot_ops.VersionedSourcePackage(id=pkg_models.SrcPkgId("pkg1"), version="1.0")],
+    # THEN: process_changes is called to reproduce the target snapshot
+    process_changes_mock.assert_called_once_with(
+        origin_snapshot=root_snapshot_value,
+        changes=cimple.models.snapshot.SnapshotChanges(
+            add=[
+                cimple.models.snapshot.SnapshotChangeAdd.model_construct(name="pkg1", version="1.0")
+            ],
+            update=[],
+            remove=[],
+        ),
         pkg_index_path=pkg_index_path,
         parallel=1,
     )
 
-    # THEN: compare is called on two snapshots
-    compare_mock.assert_called_once_with(
-        dummy_snapshot_value,
+    # THEN: compare_pkgs_with is called on the root snapshot with the dummy snapshot
+    # The first call is the actual call from reproduce: root.compare_pkgs_with(dummy)
+    # Subsequent calls may be from __eq__ during assertions
+    assert len(compare_spy.call_args_list) >= 1, (
+        f"Expected at least 1 call, got {len(compare_spy.call_args_list)}"
     )
+    first_call = compare_spy.call_args_list[0]
+    assert first_call[0][0] == root_snapshot_value
+    assert first_call[0][1] == dummy_snapshot_value
