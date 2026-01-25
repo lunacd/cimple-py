@@ -16,7 +16,7 @@ class TestResolveSnapshotChanges:
     def test_no_change(self, cimple_pi: pathlib.Path):
         # Given: a snapshot and a matching stream
         cimple_snapshot = cimple.snapshot.core.load_snapshot("test-snapshot")
-        stream_data = cimple.stream.load_stream(cimple_pi, "test-stream")
+        stream_data = cimple.stream.load_stream_config(cimple_pi, "test-stream")
 
         # When: resolving snapshot changes
         snapshot_changes = cimple.stream.resolve_snapshot_changes(stream_data, cimple_snapshot)
@@ -30,7 +30,7 @@ class TestResolveSnapshotChanges:
     def test_with_changes(self, cimple_pi: pathlib.Path):
         # Given: a snapshot and a stream with changes
         cimple_snapshot = cimple.snapshot.core.load_snapshot("test-snapshot")
-        stream_data = cimple.stream.load_stream(cimple_pi, "test-stream-with-changes")
+        stream_data = cimple.stream.load_stream_config(cimple_pi, "test-stream-with-changes")
 
         # When: resolving snapshot changes
         snapshot_changes = cimple.stream.resolve_snapshot_changes(stream_data, cimple_snapshot)

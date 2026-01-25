@@ -5,7 +5,7 @@ import pydantic
 import cimple.models.pkg
 
 
-class Stream(pydantic.BaseModel):
+class StreamConfig(pydantic.BaseModel):
     schema_version: typing.Literal["0"]
     bootstrap_pkgs: typing.Annotated[
         list[cimple.models.pkg.SrcPkgId],
@@ -32,3 +32,13 @@ class Stream(pydantic.BaseModel):
         self, toolchain_pkgs: list[cimple.models.pkg.SrcPkgId]
     ) -> list[str]:
         return [pkg_id.name for pkg_id in toolchain_pkgs]
+
+
+class StreamData(pydantic.BaseModel):
+    """
+    Stream data stored in the cimple store.
+    """
+
+    schema_version: typing.Literal["0"]
+    name: str
+    latest_snapshot: str

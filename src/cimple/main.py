@@ -1,10 +1,12 @@
 import typer
 
 import cimple.cmd.snapshot
+import cimple.cmd.stream
 import cimple.images as images
 
 app = typer.Typer()
 app.add_typer(cimple.cmd.snapshot.snapshot_app, name="snapshot")
+app.add_typer(cimple.cmd.stream.stream_app, name="stream")
 
 
 @app.command()
