@@ -65,116 +65,273 @@ class TestSnapshotCore:
         with snapshot_files[0].open("r") as f:
             cimple.models.snapshot.SnapshotModel.model_validate_json(f.read())
 
-    class TestSnapshotUpdate:
-        @pytest.mark.usefixtures("basic_cimple_store")
-        def test_no_update(self, cimple_pi: pathlib.Path):
-            # GIVEN: a snapshot
-            snapshot = cimple.snapshot.core.load_snapshot("test-snapshot")
-            original_snapshot = copy.deepcopy(snapshot)
-            pkg_processor = cimple.pkg.ops.PkgOps()
+    def test_snapshot_graph(self):
+        # GIVEN: a snapshot with some bootstrap packages and normal packages
+        snapshot_data_raw = {
+            "version": 0,
+            "name": "test_snapshot",
+            "bootstrap_pkgs": [
+                {
+                    "name": "bootstrap1",
+                    "version": "1.0",
+                    "pkg_type": "src",
+                    # It's okay for bootstrap packages to build depend on itself and each other
+                    "build_depends": ["bootstrap1-bin", "bootstrap2-bin"],
+                    "binary_packages": ["bootstrap1-bin"],
+                },
+                {
+                    "name": "bootstrap1-bin",
+                    "sha256": "dummy",
+                    "pkg_type": "bin",
+                    "compression_method": "xz",
+                    "depends": ["bootstrap2-bin"],
+                },
+                {
+                    "name": "bootstrap2",
+                    "version": "1.0",
+                    "pkg_type": "src",
+                    "build_depends": ["bootstrap1-bin"],
+                    "binary_packages": ["bootstrap2-bin"],
+                },
+                {
+                    "name": "bootstrap2-bin",
+                    "sha256": "dummy",
+                    "pkg_type": "bin",
+                    "compression_method": "xz",
+                    "depends": [],
+                },
+            ],
+            "pkgs": [
+                {
+                    "name": "pkg1",
+                    "version": "1.0",
+                    "pkg_type": "src",
+                    "build_depends": ["bootstrap1-bin"],
+                    "binary_packages": ["pkg1-bin"],
+                },
+                {
+                    "name": "pkg1-bin",
+                    "sha256": "dummy",
+                    "pkg_type": "bin",
+                    "compression_method": "xz",
+                    "depends": ["bootstrap2-bin"],
+                },
+                {
+                    "name": "pkg2",
+                    "version": "1.0",
+                    "pkg_type": "src",
+                    "build_depends": ["pkg1-bin"],
+                    "binary_packages": ["pkg2-bin"],
+                },
+                {
+                    "name": "pkg2-bin",
+                    "sha256": "dummy",
+                    "pkg_type": "bin",
+                    "compression_method": "xz",
+                    "depends": ["pkg1-bin"],
+                },
+            ],
+            "ancestor": "root",
+            "changes": {"add": [], "remove": [], "update": []},
+        }
+        snapshot_data = cimple.models.snapshot.SnapshotModel.model_validate(snapshot_data_raw)
 
-            # WHEN: adding a package
-            snapshot.update_with_changes(
-                changes=cimple.models.snapshot.SnapshotChanges.model_construct(
-                    add=[], remove=[], update=[]
-                ),
-                pkg_processor=pkg_processor,
-                pkg_index_path=cimple_pi,
-            )
+        # WHEN: creating a CimpleSnapshot from the snapshot data
+        snapshot = cimple.snapshot.core.CimpleSnapshot(snapshot_data)
 
-            # THEN: snapshot remains unchanged
-            assert snapshot.src_pkg_map == original_snapshot.src_pkg_map
-            assert snapshot.bin_pkg_map == original_snapshot.bin_pkg_map
-            assert snapshot.graph.nodes == original_snapshot.graph.nodes
-            assert snapshot.graph.edges == original_snapshot.graph.edges
+        # THEN: the snapshot graph has all expected nodes
+        expected_nodes = {
+            # Bootstrap packages
+            cimple.models.pkg.SrcPkgId("bootstrap1"),
+            cimple.models.pkg.BinPkgId("bootstrap1-bin"),
+            cimple.models.pkg.SrcPkgId("bootstrap2"),
+            cimple.models.pkg.BinPkgId("bootstrap2-bin"),
+            cimple.models.pkg.SrcPkgId("bootstrap:bootstrap1"),
+            cimple.models.pkg.BinPkgId("bootstrap:bootstrap1-bin"),
+            cimple.models.pkg.SrcPkgId("bootstrap:bootstrap2"),
+            cimple.models.pkg.BinPkgId("bootstrap:bootstrap2-bin"),
+            # Normal packages
+            cimple.models.pkg.SrcPkgId("pkg1"),
+            cimple.models.pkg.BinPkgId("pkg1-bin"),
+            cimple.models.pkg.SrcPkgId("pkg2"),
+            cimple.models.pkg.BinPkgId("pkg2-bin"),
+        }
+        actual_nodes = set(snapshot.graph.nodes)
+        assert actual_nodes == expected_nodes
 
-        @pytest.mark.usefixtures("basic_cimple_store")
-        def test_remove_pkg(self, cimple_pi: pathlib.Path):
-            # GIVEN: a snapshot
-            snapshot = cimple.snapshot.core.load_snapshot("test-snapshot")
-            pkg_processor = cimple.pkg.ops.PkgOps()
+        # THEN: the snapshot graph has all expected edges
+        expected_edges = {
+            # Connection between src and bin packages
+            (
+                cimple.models.pkg.BinPkgId("bootstrap1-bin"),
+                cimple.models.pkg.SrcPkgId("bootstrap1"),
+            ),
+            (
+                cimple.models.pkg.BinPkgId("bootstrap2-bin"),
+                cimple.models.pkg.SrcPkgId("bootstrap2"),
+            ),
+            (
+                cimple.models.pkg.BinPkgId("bootstrap:bootstrap1-bin"),
+                cimple.models.pkg.SrcPkgId("bootstrap:bootstrap1"),
+            ),
+            (
+                cimple.models.pkg.BinPkgId("bootstrap:bootstrap2-bin"),
+                cimple.models.pkg.SrcPkgId("bootstrap:bootstrap2"),
+            ),
+            (cimple.models.pkg.BinPkgId("pkg1-bin"), cimple.models.pkg.SrcPkgId("pkg1")),
+            (cimple.models.pkg.BinPkgId("pkg2-bin"), cimple.models.pkg.SrcPkgId("pkg2")),
+            # Build dependencies for bootstrap packages
+            (
+                cimple.models.pkg.SrcPkgId("bootstrap1"),
+                cimple.models.pkg.BinPkgId("bootstrap:bootstrap1-bin"),
+            ),
+            (
+                cimple.models.pkg.SrcPkgId("bootstrap1"),
+                cimple.models.pkg.BinPkgId("bootstrap:bootstrap2-bin"),
+            ),
+            (
+                cimple.models.pkg.SrcPkgId("bootstrap2"),
+                cimple.models.pkg.BinPkgId("bootstrap:bootstrap1-bin"),
+            ),
+            # Binary dependencies for bootstrap packages
+            (
+                cimple.models.pkg.BinPkgId("bootstrap1-bin"),
+                cimple.models.pkg.BinPkgId("bootstrap2-bin"),
+            ),
+            (
+                cimple.models.pkg.BinPkgId("bootstrap:bootstrap1-bin"),
+                cimple.models.pkg.BinPkgId("bootstrap:bootstrap2-bin"),
+            ),
+            # Build dependencies for normal packages
+            (
+                cimple.models.pkg.SrcPkgId("pkg1"),
+                cimple.models.pkg.BinPkgId("bootstrap1-bin"),
+            ),
+            (
+                cimple.models.pkg.SrcPkgId("pkg2"),
+                cimple.models.pkg.BinPkgId("pkg1-bin"),
+            ),
+            # Binary dependencies for normal packages
+            (
+                cimple.models.pkg.BinPkgId("pkg1-bin"),
+                cimple.models.pkg.BinPkgId("bootstrap2-bin"),
+            ),
+            (cimple.models.pkg.BinPkgId("pkg2-bin"), cimple.models.pkg.BinPkgId("pkg1-bin")),
+        }
+        actual_edges = set(snapshot.graph.edges)
+        assert actual_edges == expected_edges
 
-            # WHEN: removing a package
-            pkg_to_remove = cimple.models.pkg.SrcPkgId("pkg2")
-            snapshot.update_with_changes(
-                changes=cimple.models.snapshot.SnapshotChanges.model_construct(
-                    add=[], remove=[pkg_to_remove], update=[]
-                ),
-                pkg_processor=pkg_processor,
-                pkg_index_path=cimple_pi,
-            )
 
-            # THEN: the package is removed from the snapshot
-            assert pkg_to_remove not in snapshot.src_pkg_map
-            assert cimple.models.pkg.BinPkgId("pkg2-bin") not in snapshot.bin_pkg_map
+class TestSnapshotUpdate:
+    @pytest.mark.usefixtures("basic_cimple_store")
+    def test_no_update(self, cimple_pi: pathlib.Path):
+        # GIVEN: a snapshot
+        snapshot = cimple.snapshot.core.load_snapshot("test-snapshot")
+        original_snapshot = copy.deepcopy(snapshot)
+        pkg_processor = cimple.pkg.ops.PkgOps()
 
-        @pytest.mark.usefixtures("basic_cimple_store")
-        def test_add_pkg(self, cimple_pi: pathlib.Path):
-            # GIVEN: a snapshot
-            snapshot = cimple.snapshot.core.load_snapshot("test-snapshot")
-            pkg_processor = cimple.pkg.ops.PkgOps()
+        # WHEN: adding a package
+        snapshot.update_with_changes(
+            changes=cimple.models.snapshot.SnapshotChanges.model_construct(
+                add=[], remove=[], update=[]
+            ),
+            pkg_processor=pkg_processor,
+            pkg_index_path=cimple_pi,
+        )
 
-            # WHEN: adding a package
-            pkg_to_add = cimple.models.snapshot.SnapshotChangeAdd(name="custom", version="0.0.1-1")
-            snapshot.update_with_changes(
-                changes=cimple.models.snapshot.SnapshotChanges.model_construct(
-                    add=[pkg_to_add], remove=[], update=[]
-                ),
-                pkg_processor=pkg_processor,
-                pkg_index_path=cimple_pi,
-            )
+        # THEN: snapshot remains unchanged
+        assert snapshot.src_pkg_map == original_snapshot.src_pkg_map
+        assert snapshot.bin_pkg_map == original_snapshot.bin_pkg_map
+        assert snapshot.graph.nodes == original_snapshot.graph.nodes
+        assert snapshot.graph.edges == original_snapshot.graph.edges
 
-            # THEN: the package is added to the snapshot
-            assert cimple.models.pkg.SrcPkgId("custom") in snapshot.src_pkg_map
-            assert cimple.models.pkg.BinPkgId("custom") in snapshot.bin_pkg_map
+    @pytest.mark.usefixtures("basic_cimple_store")
+    def test_remove_pkg(self, cimple_pi: pathlib.Path):
+        # GIVEN: a snapshot
+        snapshot = cimple.snapshot.core.load_snapshot("test-snapshot")
+        pkg_processor = cimple.pkg.ops.PkgOps()
 
-            # THEN: custom build depends on pkg1-bin and binary package custom depends on pkg2-bin
-            assert snapshot.graph.has_edge(
-                cimple.models.pkg.SrcPkgId("custom"), cimple.models.pkg.BinPkgId("pkg1-bin")
-            )
-            assert snapshot.graph.has_edge(
-                cimple.models.pkg.BinPkgId("custom"), cimple.models.pkg.BinPkgId("pkg2-bin")
-            )
+        # WHEN: removing a package
+        pkg_to_remove = cimple.models.pkg.SrcPkgId("pkg2")
+        snapshot.update_with_changes(
+            changes=cimple.models.snapshot.SnapshotChanges.model_construct(
+                add=[], remove=[pkg_to_remove], update=[]
+            ),
+            pkg_processor=pkg_processor,
+            pkg_index_path=cimple_pi,
+        )
 
-        @pytest.mark.usefixtures("basic_cimple_store")
-        def test_update_pkg(self, cimple_pi: pathlib.Path):
-            # GIVEN: a snapshot
-            snapshot = cimple.snapshot.core.load_snapshot("test-snapshot")
-            pkg_processor = cimple.pkg.ops.PkgOps()
+        # THEN: the package is removed from the snapshot
+        assert pkg_to_remove not in snapshot.src_pkg_map
+        assert cimple.models.pkg.BinPkgId("pkg2-bin") not in snapshot.bin_pkg_map
 
-            # WHEN: updating a package
-            # This update changes depends for pkg1
-            # This also changes the binary name pkg1 produces to pkg1-bin2 (from pkg1-bin)
-            pkg_to_update = cimple.models.snapshot.SnapshotChangeUpdate.model_construct(
-                name="pkg1", from_version="1.0", to_version="2.0-1"
-            )
-            snapshot.update_with_changes(
-                changes=cimple.models.snapshot.SnapshotChanges.model_construct(
-                    add=[], remove=[], update=[pkg_to_update]
-                ),
-                pkg_processor=pkg_processor,
-                pkg_index_path=cimple_pi,
-            )
+    @pytest.mark.usefixtures("basic_cimple_store")
+    def test_add_pkg(self, cimple_pi: pathlib.Path):
+        # GIVEN: a snapshot
+        snapshot = cimple.snapshot.core.load_snapshot("test-snapshot")
+        pkg_processor = cimple.pkg.ops.PkgOps()
 
-            # THEN: the package is updated in the snapshot with the correct version
-            updated_pkg = snapshot.src_pkg_map[cimple.models.pkg.SrcPkgId("pkg1")]
-            assert updated_pkg.version == "2.0-1"
+        # WHEN: adding a package
+        pkg_to_add = cimple.models.snapshot.SnapshotChangeAdd(name="custom", version="0.0.1-1")
+        snapshot.update_with_changes(
+            changes=cimple.models.snapshot.SnapshotChanges.model_construct(
+                add=[pkg_to_add], remove=[], update=[]
+            ),
+            pkg_processor=pkg_processor,
+            pkg_index_path=cimple_pi,
+        )
 
-            # THEN: the old binary package is removed and the new one is added
-            assert cimple.models.pkg.BinPkgId("pkg1-bin") not in snapshot.bin_pkg_map
-            assert cimple.models.pkg.BinPkgId("pkg1-bin2") in snapshot.bin_pkg_map
+        # THEN: the package is added to the snapshot
+        assert cimple.models.pkg.SrcPkgId("custom") in snapshot.src_pkg_map
+        assert cimple.models.pkg.BinPkgId("custom") in snapshot.bin_pkg_map
 
-            # THEN: pkg1 now build-depends on pkg3-bin instead of pkg2-bin
-            # pkg1-bin2 now has an added depend on pkg4-bin
-            assert not snapshot.graph.has_edge(
-                cimple.models.pkg.SrcPkgId("pkg1"), cimple.models.pkg.BinPkgId("pkg2-bin")
-            )
-            assert snapshot.graph.has_edge(
-                cimple.models.pkg.SrcPkgId("pkg1"), cimple.models.pkg.BinPkgId("pkg3-bin")
-            )
-            assert snapshot.graph.has_edge(
-                cimple.models.pkg.BinPkgId("pkg1-bin2"), cimple.models.pkg.BinPkgId("pkg4-bin")
-            )
+        # THEN: custom build depends on pkg1-bin and binary package custom depends on pkg2-bin
+        assert snapshot.graph.has_edge(
+            cimple.models.pkg.SrcPkgId("custom"), cimple.models.pkg.BinPkgId("pkg1-bin")
+        )
+        assert snapshot.graph.has_edge(
+            cimple.models.pkg.BinPkgId("custom"), cimple.models.pkg.BinPkgId("pkg2-bin")
+        )
+
+    @pytest.mark.usefixtures("basic_cimple_store")
+    def test_update_pkg(self, cimple_pi: pathlib.Path):
+        # GIVEN: a snapshot
+        snapshot = cimple.snapshot.core.load_snapshot("test-snapshot")
+        pkg_processor = cimple.pkg.ops.PkgOps()
+
+        # WHEN: updating a package
+        # This update changes depends for pkg1
+        # This also changes the binary name pkg1 produces to pkg1-bin2 (from pkg1-bin)
+        pkg_to_update = cimple.models.snapshot.SnapshotChangeUpdate.model_construct(
+            name="pkg1", from_version="1.0", to_version="2.0-1"
+        )
+        snapshot.update_with_changes(
+            changes=cimple.models.snapshot.SnapshotChanges.model_construct(
+                add=[], remove=[], update=[pkg_to_update]
+            ),
+            pkg_processor=pkg_processor,
+            pkg_index_path=cimple_pi,
+        )
+
+        # THEN: the package is updated in the snapshot with the correct version
+        updated_pkg = snapshot.src_pkg_map[cimple.models.pkg.SrcPkgId("pkg1")]
+        assert updated_pkg.version == "2.0-1"
+
+        # THEN: the old binary package is removed and the new one is added
+        assert cimple.models.pkg.BinPkgId("pkg1-bin") not in snapshot.bin_pkg_map
+        assert cimple.models.pkg.BinPkgId("pkg1-bin2") in snapshot.bin_pkg_map
+
+        # THEN: pkg1 now build-depends on pkg3-bin instead of pkg2-bin
+        # pkg1-bin2 now has an added depend on pkg4-bin
+        assert not snapshot.graph.has_edge(
+            cimple.models.pkg.SrcPkgId("pkg1"), cimple.models.pkg.BinPkgId("pkg2-bin")
+        )
+        assert snapshot.graph.has_edge(
+            cimple.models.pkg.SrcPkgId("pkg1"), cimple.models.pkg.BinPkgId("pkg3-bin")
+        )
+        assert snapshot.graph.has_edge(
+            cimple.models.pkg.BinPkgId("pkg1-bin2"), cimple.models.pkg.BinPkgId("pkg4-bin")
+        )
 
 
 class TestSnapshotOps:

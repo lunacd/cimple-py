@@ -81,6 +81,7 @@ def basic_cimple_store_fixture(fs: pyfakefs.fake_filesystem.FakeFilesystem) -> N
                 "depends": [],
             },
         ],
+        "bootstrap_pkgs": [],
         "ancestor": "root",
         "changes": {"add": [], "remove": [], "update": []},
     }

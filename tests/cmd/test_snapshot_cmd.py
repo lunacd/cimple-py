@@ -12,6 +12,7 @@ root_snapshot_data = snapshot_models.SnapshotModel(
     version=0,
     name="root",
     pkgs=[],
+    bootstrap_pkgs=[],
     ancestor=None,
     changes=snapshot_models.SnapshotChanges(add=[], remove=[], update=[]),
 )
@@ -36,6 +37,7 @@ dummy_snapshot_data = snapshot_models.SnapshotModel.model_validate(
                 "compression_method": "xz",
             },
         ],
+        "bootstrap_pkgs": [],
         "ancestor": "root",
         "changes": {"add": [], "remove": [], "update": []},
     }
