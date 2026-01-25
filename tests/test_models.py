@@ -50,6 +50,22 @@ def test_pkg_config_model_round_trip(config):
         {
             "version": 0,
             "name": "test_snapshot",
+            "bootstrap_pkgs": [
+                {
+                    "name": "bootstrap1",
+                    "version": "1.0",
+                    "pkg_type": "src",
+                    "build_depends": [],
+                    "binary_packages": ["bootstrap1-bin"],
+                },
+                {
+                    "name": "bootstrap1-bin",
+                    "sha256": "a4defb8341593d4deea245993aeb3ce54de060affb10cb9ae60ec3789dd3f241",
+                    "pkg_type": "bin",
+                    "compression_method": "xz",
+                    "depends": [],
+                },
+            ],
             "pkgs": [
                 {
                     "name": "pkg1",
@@ -71,6 +87,7 @@ def test_pkg_config_model_round_trip(config):
                 "add": [{"name": "pkg1", "version": "1.0"}],
                 "remove": ["pkg2"],
                 "update": [{"name": "pkg3", "from": "2.0", "to": "2.1"}],
+                "update_bootstrap": ["pkg1", "pkg2"],
             },
         }
     ],
