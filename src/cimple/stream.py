@@ -1,3 +1,4 @@
+import tomllib
 from typing import TYPE_CHECKING
 
 import cimple.models.snapshot
@@ -8,16 +9,21 @@ if TYPE_CHECKING:
     import pathlib
 
 
-def load_stream(pi_path: pathlib.Path, stream_name: str) -> cimple.models.stream.Stream:
+def load_stream_config(
+    pi_path: pathlib.Path, stream_name: str
+) -> cimple.models.stream.StreamConfig:
     """
     Load a stream configuration by name.
     """
-    stream_path = pi_path / "stream" / f"{stream_name}.json"
-    return cimple.models.stream.Stream.model_validate_json(stream_path.read_text())
+    stream_config_path = pi_path / "stream" / f"{stream_name}.toml"
+    with stream_config_path.open("rb") as f:
+        stream_config_dict = tomllib.load(f)
+    return cimple.models.stream.StreamConfig.model_validate(stream_config_dict)
 
 
 def resolve_snapshot_changes(
-    stream_data: cimple.models.stream.Stream, current_snapshot: cimple.snapshot.core.CimpleSnapshot
+    stream_config: cimple.models.stream.StreamConfig,
+    current_snapshot: cimple.snapshot.core.CimpleSnapshot,
 ) -> cimple.models.snapshot.SnapshotChanges:
     """
     Given a stream config, resolve the list of package IDs that should be included in the target
@@ -25,7 +31,7 @@ def resolve_snapshot_changes(
     """
     snapshot_changes = cimple.models.snapshot.SnapshotChanges(add=[], remove=[], update=[])
 
-    for target_pkg in stream_data.pkgs:
+    for target_pkg in stream_config.pkgs:
         # Adds
         if target_pkg.id not in current_snapshot.src_pkg_map:
             snapshot_changes.add.append(
@@ -49,7 +55,7 @@ def resolve_snapshot_changes(
 
     # Removals
     for current_pkg in current_snapshot.src_pkg_map:
-        if current_pkg not in stream_data.all_pkgs:
+        if current_pkg not in stream_config.all_pkgs:
             snapshot_changes.remove.append(current_pkg)
 
     return snapshot_changes

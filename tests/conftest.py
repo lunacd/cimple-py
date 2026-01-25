@@ -8,6 +8,7 @@ import typing
 import pytest
 
 import cimple.constants
+import cimple.models.stream
 from cimple.models import pkg as pkg_models
 from cimple.models import snapshot as snapshot_models
 from cimple.snapshot import core as snapshot_core
@@ -87,6 +88,18 @@ def basic_cimple_store_fixture(fs: pyfakefs.fake_filesystem.FakeFilesystem) -> N
     _ = fs.create_file(
         cimple.constants.cimple_snapshot_dir / "test-snapshot.json",
         contents=json.dumps(snapshot_data),
+    )
+
+    # Create stream
+    stream_data: dict[str, typing.Any] = {
+        "schema_version": "0",
+        "name": "test-stream",
+        "latest_snapshot": "test-snapshot",
+    }
+    stream = cimple.models.stream.StreamData.model_validate(stream_data)
+    _ = fs.create_file(
+        cimple.constants.cimple_stream_dir / "test-stream.json",
+        contents=stream.model_dump_json(),
     )
 
     # Add binary packages

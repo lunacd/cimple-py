@@ -100,7 +100,7 @@ def test_snapshot_model_round_trip(snapshot):
 )
 def test_stream_model_round_trip(stream):
     # WHEN: loading and then serializing a stream model
-    model = cimple.models.stream.Stream.model_validate(stream)
+    model = cimple.models.stream.StreamConfig.model_validate(stream)
     result = model.model_dump()
 
     # THEN: the result matches the original stream data
