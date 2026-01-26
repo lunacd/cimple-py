@@ -87,7 +87,11 @@ def test_pkg_config_model_round_trip(config):
                 "add": [{"name": "pkg1", "version": "1.0"}],
                 "remove": ["pkg2"],
                 "update": [{"name": "pkg3", "from": "2.0", "to": "2.1"}],
-                "update_bootstrap": ["pkg1", "pkg2"],
+            },
+            "bootstrap_changes": {
+                "add": [{"name": "bootstrap1", "version": "1.0"}],
+                "remove": ["bootstrap2"],
+                "update": [{"name": "bootstrap3", "from": "3.0", "to": "3.1"}],
             },
         }
     ],
@@ -106,12 +110,11 @@ def test_snapshot_model_round_trip(snapshot):
     [
         {
             "schema_version": "0",
-            "bootstrap_pkgs": ["pkgA", "pkgB"],
-            "toolchain_pkgs": ["pkgC"],
             "pkgs": [
                 {"name": "pkg1", "version": "1.0"},
                 {"name": "pkg2", "version": "2.0"},
             ],
+            "bootstrap_pkgs": [{"name": "pkg3", "version": "3.0"}],
         }
     ],
 )

@@ -17,6 +17,7 @@ root_snapshot_data = snapshot_models.SnapshotModel(
     bootstrap_pkgs=[],
     ancestor=None,
     changes=snapshot_models.SnapshotChanges(add=[], remove=[], update=[]),
+    bootstrap_changes=snapshot_models.SnapshotChanges(add=[], remove=[], update=[]),
 )
 
 dummy_snapshot_data = snapshot_models.SnapshotModel.model_validate(
@@ -42,6 +43,7 @@ dummy_snapshot_data = snapshot_models.SnapshotModel.model_validate(
         "bootstrap_pkgs": [],
         "ancestor": "root",
         "changes": {"add": [], "remove": [], "update": []},
+        "bootstrap_changes": {"add": [], "remove": [], "update": []},
     }
 )
 
@@ -178,9 +180,17 @@ class TestStreamCmd:
             ],
             remove=[],
         )
+        expected_bootstrap_changes = cimple.models.snapshot.SnapshotChanges(
+            add=[cimple.models.snapshot.SnapshotChangeAdd(name="bootstrap1", version="1.0")],
+            update=[],
+            remove=[],
+        )
         resolve_changes_mock = mocker.patch(
             "cimple.cmd.stream.cimple.stream.resolve_snapshot_changes",
-            return_value=expected_changes,
+            return_value=cimple.stream.ResolvedSnapshotChanges(
+                pkg_changes=expected_changes,
+                bootstrap_changes=expected_bootstrap_changes,
+            ),
         )
 
         # GIVEN: mocked dump_snapshot to track its invocation

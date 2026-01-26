@@ -133,6 +133,7 @@ class TestSnapshotCore:
             ],
             "ancestor": "root",
             "changes": {"add": [], "remove": [], "update": []},
+            "bootstrap_changes": {"add": [], "remove": [], "update": []},
         }
         snapshot_data = cimple.models.snapshot.SnapshotModel.model_validate(snapshot_data_raw)
 

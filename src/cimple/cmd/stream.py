@@ -41,7 +41,7 @@ def update(
 
     # Resolve changes
     cimple.logging.info("Resolving snapshot changes from stream config")
-    changes = cimple.stream.resolve_snapshot_changes(
+    pkg_changes, bootstrap_changes = cimple.stream.resolve_snapshot_changes(
         stream_config=stream_config, current_snapshot=snapshot
     )
 
@@ -49,7 +49,7 @@ def update(
     cimple.logging.info("Processing snapshot changes")
     cimple.snapshot.ops.process_changes(
         origin_snapshot=snapshot,
-        changes=changes,
+        changes=pkg_changes,
         pkg_index_path=pkg_index,
         parallel=parallel,
     )
