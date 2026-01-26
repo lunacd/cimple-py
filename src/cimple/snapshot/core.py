@@ -154,6 +154,7 @@ class CimpleSnapshot:
         self.name = snapshot_data.name
         self.ancestor = snapshot_data.ancestor
         self.changes = snapshot_data.changes
+        self.bootstrap_changes = snapshot_data.bootstrap_changes
 
     def build_depends_of(self, src_pkg: pkg_models.SrcPkgId) -> list[pkg_models.BinPkgId]:
         """
@@ -220,6 +221,7 @@ class CimpleSnapshot:
             bootstrap_pkgs=bootstrap_pkgs,
             ancestor=self.ancestor,
             changes=self.changes,
+            bootstrap_changes=self.bootstrap_changes
         )
 
         cimple.util.ensure_path(cimple.constants.cimple_snapshot_dir)
@@ -458,6 +460,7 @@ def load_snapshot(name: str) -> CimpleSnapshot:
             bootstrap_pkgs=[],
             ancestor=None,
             changes=snapshot_models.SnapshotChanges(add=[], remove=[], update=[]),
+            bootstrap_changes=snapshot_models.SnapshotChanges(add=[], remove=[], update=[]),
         )
     else:
         snapshot_path = cimple.constants.cimple_snapshot_dir / f"{name}.json"

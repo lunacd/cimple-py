@@ -84,6 +84,7 @@ def basic_cimple_store_fixture(fs: pyfakefs.fake_filesystem.FakeFilesystem) -> N
         "bootstrap_pkgs": [],
         "ancestor": "root",
         "changes": {"add": [], "remove": [], "update": []},
+        "bootstrap_changes": {"add": [], "remove": [], "update": []},
     }
     snapshot = snapshot_models.SnapshotModel.model_validate(snapshot_data)
     _ = fs.create_file(

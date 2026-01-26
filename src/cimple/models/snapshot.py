@@ -92,17 +92,10 @@ class SnapshotChanges(pydantic.BaseModel):
         list[pkg_models.SrcPkgId], pydantic.BeforeValidator(pkg_models.src_pkg_id_list_validator)
     ]
     update: list[SnapshotChangeUpdate]
-    update_bootstrap: typing.Annotated[
-        list[pkg_models.SrcPkgId], pydantic.BeforeValidator(pkg_models.src_pkg_id_list_validator)
-    ] = []
 
     @pydantic.field_serializer("remove")
     def serialize_remove(self, remove: list[pkg_models.SrcPkgId]) -> list[str]:
         return [pkg_id.name for pkg_id in remove]
-
-    @pydantic.field_serializer("update_bootstrap")
-    def serialize_update_bootstrap(self, update_bootstrap: list[pkg_models.SrcPkgId]) -> list[str]:
-        return [pkg_id.name for pkg_id in update_bootstrap]
 
 
 class SnapshotModel(pydantic.BaseModel):
@@ -112,3 +105,4 @@ class SnapshotModel(pydantic.BaseModel):
     bootstrap_pkgs: list[SnapshotPkg]
     ancestor: str | None
     changes: SnapshotChanges
+    bootstrap_changes: SnapshotChanges

@@ -1,6 +1,4 @@
 schema_version = "0"
-bootstrap_pkgs = []
-toolchain_pkgs = []
 
 [[pkgs]]
 name = "pkg2"
@@ -17,4 +15,8 @@ version = "1.0"
 
 [[pkgs]]
 name = "pkg5"
+version = "1.0"
+
+[[bootstrap_pkgs]]
+name = "bootstrap1"
 version = "1.0"
