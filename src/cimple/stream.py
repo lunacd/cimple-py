@@ -64,6 +64,7 @@ class ResolvedSnapshotChanges(typing.NamedTuple):
     pkg_changes: cimple.models.snapshot.SnapshotChanges
     bootstrap_changes: cimple.models.snapshot.SnapshotChanges
 
+
 def resolve_snapshot_changes(
     stream_config: cimple.models.stream.StreamConfig,
     current_snapshot: cimple.snapshot.core.CimpleSnapshot,
@@ -82,6 +83,4 @@ def resolve_snapshot_changes(
         target_pkgs=stream_config.bootstrap_pkgs,
     )
 
-    return ResolvedSnapshotChanges(
-        pkg_changes=pkg_changes, bootstrap_changes=bootstrap_changes
-    )
+    return ResolvedSnapshotChanges(pkg_changes=pkg_changes, bootstrap_changes=bootstrap_changes)

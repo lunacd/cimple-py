@@ -221,7 +221,7 @@ class CimpleSnapshot:
             bootstrap_pkgs=bootstrap_pkgs,
             ancestor=self.ancestor,
             changes=self.changes,
-            bootstrap_changes=self.bootstrap_changes
+            bootstrap_changes=self.bootstrap_changes,
         )
 
         cimple.util.ensure_path(cimple.constants.cimple_snapshot_dir)
