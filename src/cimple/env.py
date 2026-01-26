@@ -63,7 +63,7 @@ def baseline_env() -> dict[str, str]:
     return baseline_env
 
 
-_msvc_base_path = "C:\\Program Files\\Microsoft Visual Studio\\2022"
+_msvc_base_path = "C:\\Program Files\\Microsoft Visual Studio\\18"
 _msvc_editions = ["Enterprise", "Professional", "Community"]
 
 
