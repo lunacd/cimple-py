@@ -7,6 +7,7 @@ import networkx as nx
 import pydantic
 
 import cimple.graph
+import cimple.models.pkg
 import cimple.models.snapshot
 import cimple.pkg.core
 import cimple.pkg.ops
@@ -24,7 +25,9 @@ class VersionedSourcePackage(pydantic.BaseModel):
 
 
 def compute_build_graph(
-    snapshot: cimple.snapshot.core.CimpleSnapshot, changes: cimple.models.snapshot.SnapshotChanges
+    snapshot: cimple.snapshot.core.CimpleSnapshot,
+    pkg_changes: cimple.models.snapshot.SnapshotChanges,
+    bootstrap_changes: cimple.models.snapshot.SnapshotChanges,
 ) -> cimple.graph.BuildGraph:
     """
     Compute the build order for the packages in the snapshot.
@@ -38,14 +41,23 @@ def compute_build_graph(
 
     pkgs_to_build = set()
 
-    # All added packages need to be built
-    for pkg_add in changes.add:
-        pkgs_to_build.add(pkg_add.id)
+    # Because additions and removals are split between changes and bootstrap_changes,
+    # "newly added" packages can have dependents in the unchanged build graph. For example,
+    # package A can be removed as a normal package, but its bootstrap version can be newly added.
+    # Therefore, we need to traverse the dependents of all added and updated packages in both sets.
+    all_affected_pkgs = [
+        *[add.id for add in pkg_changes.add],
+        *[update.id for update in pkg_changes.update],
+        *[add.id for add in bootstrap_changes.add],
+        *[update.id for update in bootstrap_changes.update],
+        *[cimple.models.pkg.bootstrap_src_id(add.id) for add in bootstrap_changes.add],
+        *[cimple.models.pkg.bootstrap_src_id(update.id) for update in bootstrap_changes.update],
+    ]
 
     # All updated packages and their dependents need to be built
-    for pkg_update in changes.update:
-        pkgs_to_build.add(pkg_update.id)
-        pkgs_to_build.update(nx.descendants(requirement_graph, pkg_update.id))
+    for affected_pkg in all_affected_pkgs:
+        pkgs_to_build.add(affected_pkg)
+        pkgs_to_build.update(nx.descendants(requirement_graph, affected_pkg))
 
     # Get subgraph of packages to build
     return cimple.graph.BuildGraph(
@@ -109,7 +121,9 @@ def execute_build_graph(
 
 def process_changes(
     origin_snapshot: cimple.snapshot.core.CimpleSnapshot,
-    changes: cimple.models.snapshot.SnapshotChanges,
+    pkg_changes: cimple.models.snapshot.SnapshotChanges,
+    bootstrap_changes: cimple.models.snapshot.SnapshotChanges,
+    *,
     pkg_index_path: pathlib.Path,
     parallel: int,
     extra_paths: list[pathlib.Path] | None = None,
@@ -121,13 +135,14 @@ def process_changes(
 
     # Construct new snapshot graph
     origin_snapshot.update_with_changes(
-        changes=changes,
+        pkg_changes=pkg_changes,
+        bootstrap_changes=bootstrap_changes,
         pkg_processor=pkg_processor,
         pkg_index_path=pkg_index_path,
     )
 
     # Compute build graph
-    build_graph = compute_build_graph(origin_snapshot, changes)
+    build_graph = compute_build_graph(origin_snapshot, pkg_changes, bootstrap_changes)
 
     # Execute build graph
     execute_build_graph(

@@ -304,16 +304,25 @@ class CimpleSnapshot:
         self,
         pkg_config: cimple.models.pkg_config.PkgConfig,
         dependency_data: cimple.pkg.core.PackageDependencies,
+        *,
+        bootstrap: bool = False,
     ) -> None:
         """
         Add a package and its binary packages to the snapshot.
         This is a convenience method that dispatches add_src_pkg and add_bin_pkg.
         """
         self.add_src_pkg(
-            pkg_id=pkg_models.SrcPkgId(pkg_config.root.name),
+            pkg_id=pkg_config.root.id,
             pkg_version=pkg_config.root.version,
-            build_depends=dependency_data.build_depends,
+            build_depends=dependency_data.build_depends[pkg_config.root.id],
         )
+        if bootstrap:
+            bootstrap_src_id = cimple.models.pkg.bootstrap_src_id(pkg_config.root.id)
+            self.add_src_pkg(
+                pkg_id=bootstrap_src_id,
+                pkg_version=pkg_config.root.version,
+                build_depends=dependency_data.build_depends[bootstrap_src_id],
+            )
         for binary_package in pkg_config.root.binary_packages:
             if binary_package in self.bin_pkg_map:
                 raise RuntimeError(f"Binary package {binary_package} already exists in snapshot.")
@@ -323,6 +332,18 @@ class CimpleSnapshot:
                 pkg_sha256="placeholder",  # SHA will be filled in separately
                 depends=dependency_data.depends[binary_package],
             )
+            if bootstrap:
+                bootstrap_bin_id = cimple.models.pkg.bootstrap_bin_id(binary_package)
+                if bootstrap_bin_id in self.bin_pkg_map:
+                    raise RuntimeError(
+                        f"Binary package {bootstrap_bin_id} already exists in snapshot."
+                    )
+                self.add_bin_pkg(
+                    pkg_id=bootstrap_bin_id,
+                    src_pkg=cimple.models.pkg.bootstrap_src_id(pkg_config.root.id),
+                    pkg_sha256="placeholder",  # SHA will be filled in separately
+                    depends=dependency_data.depends[bootstrap_bin_id],
+                )
 
     def remove_pkg(self, pkg_id: pkg_models.SrcPkgId) -> None:
         """
@@ -372,10 +393,59 @@ class CimpleSnapshot:
 
         return True
 
+    def _update_with_adds(
+        self,
+        pkg_adds: list[cimple.models.snapshot.SnapshotChangeAdd],
+        pkg_processor: cimple.pkg.ops.PkgOps,
+        pkg_index_path: pathlib.Path,
+        bootstrap: bool = False,
+    ):
+        """
+        Helper to process package additions.
+        """
+        for pkg_add in pkg_adds:
+            dependency_data = pkg_processor.resolve_dependencies(
+                pkg_add.id, pkg_add.version, pi_path=pkg_index_path
+            )
+            config = cimple.models.pkg_config.load_pkg_config(
+                pkg_index_path, pkg_add.id, pkg_add.version
+            )
+            self.add_pkg(config, dependency_data, bootstrap=bootstrap)
+
+    def _update_with_updates(
+        self,
+        pkg_updates: list[cimple.models.snapshot.SnapshotChangeUpdate],
+        pkg_processor: cimple.pkg.ops.PkgOps,
+        pkg_index_path: pathlib.Path,
+        bootstrap: bool = False,
+    ):
+        """
+        Helper to process package updates.
+        """
+        for pkg_update in pkg_updates:
+            # Remove old package
+            self.remove_pkg(pkg_update.id)
+
+            if bootstrap:
+                bootstrap_src_id = cimple.models.pkg.bootstrap_src_id(pkg_update.id)
+                self.remove_pkg(bootstrap_src_id)
+
+            # Add new package
+            config = cimple.models.pkg_config.load_pkg_config(
+                pkg_index_path, pkg_update.id, pkg_update.to_version
+            )
+            dependency_data = pkg_processor.resolve_dependencies(
+                pkg_update.id,
+                pkg_update.to_version,
+                pi_path=pkg_index_path,
+            )
+            self.add_pkg(config, dependency_data, bootstrap=bootstrap)
+
     def update_with_changes(
         self,
         *,
-        changes: cimple.models.snapshot.SnapshotChanges,
+        pkg_changes: cimple.models.snapshot.SnapshotChanges,
+        bootstrap_changes: cimple.models.snapshot.SnapshotChanges,
         pkg_processor: cimple.pkg.ops.PkgOps,
         pkg_index_path: pathlib.Path,
     ):
@@ -383,38 +453,43 @@ class CimpleSnapshot:
         Compute the build order for the packages to be added/updated.
         Also computes the new build dependency graph as part of the process.
         """
-        # First process additions, because updates may depend on newly added packages
-        for pkg_add in changes.add:
-            dependency_data = pkg_processor.resolve_dependencies(
-                pkg_add.id, pkg_add.version, pi_path=pkg_index_path
-            )
-            config = cimple.models.pkg_config.load_pkg_config(
-                pkg_index_path, pkg_add.id, pkg_add.version
-            )
-            self.add_pkg(config, dependency_data)
 
-        # Then process updates
-        for pkg_update in changes.update:
-            # Remove old package
-            self.remove_pkg(pkg_update.id)
+        # Changes to the graph is processed in the following order:
+        # 1. Bootstrap
+        # 2. Normal packages
+        # This is because bootstrap packages are only allowed to depend on other bootstrap packages,
+        # and normal packages may depend on bootstrap packages.
+        # In each category, additions are processed first, then updates, then removals.
+        # This is because updates may depend on newly added packages, and
+        # removals may be depended on by other packages before updates.
 
-            # Add new package
-            config = cimple.models.pkg_config.load_pkg_config(
-                pkg_index_path, pkg_models.SrcPkgId(pkg_update.name), pkg_update.to_version
-            )
-            dependency_data = pkg_processor.resolve_dependencies(
-                pkg_models.SrcPkgId(pkg_update.name),
-                pkg_update.to_version,
-                pi_path=pkg_index_path,
-            )
-            self.add_pkg(config, dependency_data)
+        # Bootstrap additions
+        self._update_with_adds(bootstrap_changes.add, pkg_processor, pkg_index_path, bootstrap=True)
 
-        # Finally process removal
-        for pkg_remove in changes.remove:
+        # Bootstrap updates
+        self._update_with_updates(
+            bootstrap_changes.update, pkg_processor, pkg_index_path, bootstrap=True
+        )
+
+        # Bootstrap removals
+        for pkg_remove in bootstrap_changes.remove:
+            self.remove_pkg(pkg_remove)
+            self.remove_pkg(cimple.models.pkg.bootstrap_src_id(pkg_remove))
+
+        # Normal additions
+        self._update_with_adds(pkg_changes.add, pkg_processor, pkg_index_path, bootstrap=False)
+
+        # Normal updates
+        self._update_with_updates(
+            pkg_changes.update, pkg_processor, pkg_index_path, bootstrap=False
+        )
+
+        # Normal removals
+        for pkg_remove in pkg_changes.remove:
             self.remove_pkg(pkg_remove)
 
         # Resolve all build and runtime dependencies and make sure they are satisfied
-        for pkg in itertools.chain(changes.add, changes.update):
+        for pkg in itertools.chain(pkg_changes.add, pkg_changes.update):
             deps_are_valid = self.validate_depends(pkg.id)
             if not deps_are_valid:
                 raise RuntimeError(f"Unable to resolve dependencies for package {pkg.id.name}")

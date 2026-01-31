@@ -7,5 +7,5 @@ if TYPE_CHECKING:
 
 @dataclasses.dataclass
 class PackageDependencies:
-    build_depends: list[cimple.models.pkg.BinPkgId]
+    build_depends: dict[cimple.models.pkg.SrcPkgId, list[cimple.models.pkg.BinPkgId]]
     depends: dict[cimple.models.pkg.BinPkgId, list[cimple.models.pkg.BinPkgId]]
