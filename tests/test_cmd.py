@@ -1,4 +1,3 @@
-from ensurepip import bootstrap
 import pathlib
 
 import pytest
