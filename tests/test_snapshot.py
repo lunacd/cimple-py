@@ -227,6 +227,10 @@ no_changes = cimple.models.snapshot.SnapshotChanges.model_construct(add=[], remo
 
 
 class TestSnapshotUpdate:
+    """
+    Test updating snapshot graph with `update_with_changes` method.
+    """
+
     @pytest.mark.usefixtures("basic_cimple_store")
     def test_no_update(self, cimple_pi: pathlib.Path):
         # GIVEN: a snapshot
@@ -337,6 +341,39 @@ class TestSnapshotUpdate:
         )
         assert snapshot.graph.has_edge(
             cimple.models.pkg.BinPkgId("pkg1-bin2"), cimple.models.pkg.BinPkgId("pkg4-bin")
+        )
+
+    @pytest.mark.usefixtures("basic_cimple_store")
+    def test_add_bootstrap(self, cimple_pi: pathlib.Path):
+        # GIVEN: a snapshot
+        snapshot = cimple.snapshot.core.load_snapshot("test-snapshot")
+        pkg_processor = cimple.pkg.ops.PkgOps()
+
+        # WHEN: adding a bootstrap package
+        pkg_to_add = cimple.models.snapshot.SnapshotChangeAdd(name="bootstrap1", version="1.0.0-1")
+        snapshot.update_with_changes(
+            pkg_changes=no_changes,
+            bootstrap_changes=cimple.models.snapshot.SnapshotChanges.model_construct(
+                add=[pkg_to_add], remove=[], update=[]
+            ),
+            pkg_processor=pkg_processor,
+            pkg_index_path=cimple_pi,
+        )
+
+        # THEN: the bootstrap package is added to the snapshot
+        assert cimple.models.pkg.SrcPkgId("bootstrap1") in snapshot.src_pkg_map
+        assert cimple.models.pkg.BinPkgId("bootstrap1-bin") in snapshot.bin_pkg_map
+        assert cimple.models.pkg.SrcPkgId("bootstrap:bootstrap1") in snapshot.src_pkg_map
+        assert cimple.models.pkg.BinPkgId("bootstrap:bootstrap1-bin") in snapshot.bin_pkg_map
+
+        # THEN: the prev packages are not added to the snapshot because they are part of the
+        # previous snapshot
+        assert cimple.models.pkg.BinPkgId("prev:bootstrap1-bin") not in snapshot.bin_pkg_map
+
+        # THEN: the bootstrap package has correct dependency edges
+        assert snapshot.graph.has_edge(
+            cimple.models.pkg.SrcPkgId("bootstrap1"),
+            cimple.models.pkg.BinPkgId("bootstrap:bootstrap1-bin"),
         )
 
 

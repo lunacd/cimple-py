@@ -1,0 +1,21 @@
+schema_version = 0
+name = "bootstrap1"
+version = "1.0.0-1"
+pkg_type = "custom"
+
+[pkg]
+supported_platforms = ["windows-x86_64"]
+build_depends = ["bootstrap1-bin"]
+
+[binaries.bootstrap1-bin]
+depends = []
+
+[input]
+source_version = "1.0.0"
+tarball_compression = "xz"
+tarball_root_dir = "src"
+sha256 = "a4defb8341593d4deea245993aeb3ce54de060affb10cb9ae60ec3789dd3f241"
+patches = []
+
+[rules]
+default = ["abc abc"]

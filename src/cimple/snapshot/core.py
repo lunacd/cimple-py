@@ -405,7 +405,7 @@ class CimpleSnapshot:
         """
         for pkg_add in pkg_adds:
             dependency_data = pkg_processor.resolve_dependencies(
-                pkg_add.id, pkg_add.version, pi_path=pkg_index_path
+                pkg_add.id, pkg_add.version, pi_path=pkg_index_path, is_bootstrap=bootstrap
             )
             config = cimple.models.pkg_config.load_pkg_config(
                 pkg_index_path, pkg_add.id, pkg_add.version
@@ -438,6 +438,7 @@ class CimpleSnapshot:
                 pkg_update.id,
                 pkg_update.to_version,
                 pi_path=pkg_index_path,
+                is_bootstrap=bootstrap,
             )
             self.add_pkg(config, dependency_data, bootstrap=bootstrap)
 
