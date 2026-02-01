@@ -49,7 +49,8 @@ def update(
     cimple.logging.info("Processing snapshot changes")
     cimple.snapshot.ops.process_changes(
         origin_snapshot=snapshot,
-        changes=pkg_changes,
+        pkg_changes=pkg_changes,
+        bootstrap_changes=bootstrap_changes,
         pkg_index_path=pkg_index,
         parallel=parallel,
     )

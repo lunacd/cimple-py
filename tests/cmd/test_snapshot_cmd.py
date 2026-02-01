@@ -76,7 +76,7 @@ def test_snapshot_change(mocker):
     load_snapshot_mock.assert_called_once_with(snapshot_name)
     add_mock.assert_called_once_with(
         origin_snapshot=dummy_snapshot_value,
-        changes=cimple.models.snapshot.SnapshotChanges(
+        pkg_changes=cimple.models.snapshot.SnapshotChanges(
             add=[
                 cimple.models.snapshot.SnapshotChangeAdd.model_construct(
                     name="pkg1", version="1.0"
@@ -88,6 +88,7 @@ def test_snapshot_change(mocker):
             update=[],
             remove=[],
         ),
+        bootstrap_changes=cimple.models.snapshot.SnapshotChanges(add=[], remove=[], update=[]),
         pkg_index_path=pkg_index_path,
         parallel=2,
         extra_paths=[],
@@ -126,12 +127,17 @@ def test_snapshot_reproduce(mocker):
     # THEN: process_changes is called to reproduce the target snapshot
     process_changes_mock.assert_called_once_with(
         origin_snapshot=root_snapshot_value,
-        changes=cimple.models.snapshot.SnapshotChanges(
+        pkg_changes=cimple.models.snapshot.SnapshotChanges(
             add=[
                 cimple.models.snapshot.SnapshotChangeAdd.model_construct(name="pkg1", version="1.0")
             ],
             update=[],
             remove=[],
+        ),
+        bootstrap_changes=cimple.models.snapshot.SnapshotChanges(
+            add=[],
+            remove=[],
+            update=[],
         ),
         pkg_index_path=pkg_index_path,
         parallel=1,

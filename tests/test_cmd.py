@@ -82,7 +82,7 @@ class TestSnapshotCmd:
         load_snapshot_mock.assert_called_once_with(snapshot_name)
         add_mock.assert_called_once_with(
             origin_snapshot=dummy_snapshot_value,
-            changes=cimple.models.snapshot.SnapshotChanges(
+            pkg_changes=cimple.models.snapshot.SnapshotChanges(
                 add=[
                     cimple.models.snapshot.SnapshotChangeAdd.model_construct(
                         name="pkg1", version="1.0"
@@ -94,6 +94,7 @@ class TestSnapshotCmd:
                 update=[],
                 remove=[],
             ),
+            bootstrap_changes=cimple.models.snapshot.SnapshotChanges(add=[], remove=[], update=[]),
             pkg_index_path=pkg_index_path,
             parallel=2,
             extra_paths=[],
@@ -133,7 +134,7 @@ class TestSnapshotCmd:
         # THEN: process_changes is called to reproduce the target snapshot
         process_changes_mock.assert_called_once_with(
             origin_snapshot=root_snapshot_value,
-            changes=cimple.models.snapshot.SnapshotChanges(
+            pkg_changes=cimple.models.snapshot.SnapshotChanges(
                 add=[
                     cimple.models.snapshot.SnapshotChangeAdd.model_construct(
                         name="pkg1", version="1.0"
@@ -142,6 +143,7 @@ class TestSnapshotCmd:
                 update=[],
                 remove=[],
             ),
+            bootstrap_changes=cimple.models.snapshot.SnapshotChanges(add=[], remove=[], update=[]),
             pkg_index_path=pkg_index_path,
             parallel=1,
         )
@@ -217,7 +219,8 @@ class TestStreamCmd:
         # THEN: process_changes is called with resolved changes
         process_changes_mock.assert_called_once_with(
             origin_snapshot=snapshot,
-            changes=expected_changes,
+            pkg_changes=expected_changes,
+            bootstrap_changes=expected_bootstrap_changes,
             pkg_index_path=cimple_pi,
             parallel=2,
         )

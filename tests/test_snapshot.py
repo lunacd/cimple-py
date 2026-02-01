@@ -223,7 +223,14 @@ class TestSnapshotCore:
         assert actual_edges == expected_edges
 
 
+no_changes = cimple.models.snapshot.SnapshotChanges.model_construct(add=[], remove=[], update=[])
+
+
 class TestSnapshotUpdate:
+    """
+    Test updating snapshot graph with `update_with_changes` method.
+    """
+
     @pytest.mark.usefixtures("basic_cimple_store")
     def test_no_update(self, cimple_pi: pathlib.Path):
         # GIVEN: a snapshot
@@ -233,9 +240,8 @@ class TestSnapshotUpdate:
 
         # WHEN: adding a package
         snapshot.update_with_changes(
-            changes=cimple.models.snapshot.SnapshotChanges.model_construct(
-                add=[], remove=[], update=[]
-            ),
+            pkg_changes=no_changes,
+            bootstrap_changes=no_changes,
             pkg_processor=pkg_processor,
             pkg_index_path=cimple_pi,
         )
@@ -255,9 +261,10 @@ class TestSnapshotUpdate:
         # WHEN: removing a package
         pkg_to_remove = cimple.models.pkg.SrcPkgId("pkg2")
         snapshot.update_with_changes(
-            changes=cimple.models.snapshot.SnapshotChanges.model_construct(
+            pkg_changes=cimple.models.snapshot.SnapshotChanges.model_construct(
                 add=[], remove=[pkg_to_remove], update=[]
             ),
+            bootstrap_changes=no_changes,
             pkg_processor=pkg_processor,
             pkg_index_path=cimple_pi,
         )
@@ -275,9 +282,10 @@ class TestSnapshotUpdate:
         # WHEN: adding a package
         pkg_to_add = cimple.models.snapshot.SnapshotChangeAdd(name="custom", version="0.0.1-1")
         snapshot.update_with_changes(
-            changes=cimple.models.snapshot.SnapshotChanges.model_construct(
+            pkg_changes=cimple.models.snapshot.SnapshotChanges.model_construct(
                 add=[pkg_to_add], remove=[], update=[]
             ),
+            bootstrap_changes=no_changes,
             pkg_processor=pkg_processor,
             pkg_index_path=cimple_pi,
         )
@@ -307,9 +315,10 @@ class TestSnapshotUpdate:
             name="pkg1", from_version="1.0", to_version="2.0-1"
         )
         snapshot.update_with_changes(
-            changes=cimple.models.snapshot.SnapshotChanges.model_construct(
+            pkg_changes=cimple.models.snapshot.SnapshotChanges.model_construct(
                 add=[], remove=[], update=[pkg_to_update]
             ),
+            bootstrap_changes=no_changes,
             pkg_processor=pkg_processor,
             pkg_index_path=cimple_pi,
         )
@@ -332,6 +341,39 @@ class TestSnapshotUpdate:
         )
         assert snapshot.graph.has_edge(
             cimple.models.pkg.BinPkgId("pkg1-bin2"), cimple.models.pkg.BinPkgId("pkg4-bin")
+        )
+
+    @pytest.mark.usefixtures("basic_cimple_store")
+    def test_add_bootstrap(self, cimple_pi: pathlib.Path):
+        # GIVEN: a snapshot
+        snapshot = cimple.snapshot.core.load_snapshot("test-snapshot")
+        pkg_processor = cimple.pkg.ops.PkgOps()
+
+        # WHEN: adding a bootstrap package
+        pkg_to_add = cimple.models.snapshot.SnapshotChangeAdd(name="bootstrap1", version="1.0.0-1")
+        snapshot.update_with_changes(
+            pkg_changes=no_changes,
+            bootstrap_changes=cimple.models.snapshot.SnapshotChanges.model_construct(
+                add=[pkg_to_add], remove=[], update=[]
+            ),
+            pkg_processor=pkg_processor,
+            pkg_index_path=cimple_pi,
+        )
+
+        # THEN: the bootstrap package is added to the snapshot
+        assert cimple.models.pkg.SrcPkgId("bootstrap1") in snapshot.src_pkg_map
+        assert cimple.models.pkg.BinPkgId("bootstrap1-bin") in snapshot.bin_pkg_map
+        assert cimple.models.pkg.SrcPkgId("bootstrap:bootstrap1") in snapshot.src_pkg_map
+        assert cimple.models.pkg.BinPkgId("bootstrap:bootstrap1-bin") in snapshot.bin_pkg_map
+
+        # THEN: the prev packages are not added to the snapshot because they are part of the
+        # previous snapshot
+        assert cimple.models.pkg.BinPkgId("prev:bootstrap1-bin") not in snapshot.bin_pkg_map
+
+        # THEN: the bootstrap package has correct dependency edges
+        assert snapshot.graph.has_edge(
+            cimple.models.pkg.SrcPkgId("bootstrap1"),
+            cimple.models.pkg.BinPkgId("bootstrap:bootstrap1-bin"),
         )
 
 
@@ -369,8 +411,9 @@ class TestSnapshotOps:
         ):
             _ = cimple.snapshot.ops.process_changes(
                 root_snapshot,
-                changes,
-                cimple_pi,
+                pkg_changes=changes,
+                bootstrap_changes=no_changes,
+                pkg_index_path=cimple_pi,
                 parallel=1,
             )
 
@@ -407,8 +450,9 @@ class TestSnapshotOps:
         ):
             _ = cimple.snapshot.ops.process_changes(
                 root_snapshot,
-                changes,
-                cimple_pi,
+                pkg_changes=changes,
+                bootstrap_changes=no_changes,
+                pkg_index_path=cimple_pi,
                 parallel=1,
             )
 
@@ -446,8 +490,9 @@ class TestSnapshotOps:
         # WHEN: adding a package to the snapshot
         cimple.snapshot.ops.process_changes(
             snapshot,
-            changes,
-            cimple_pi,
+            pkg_changes=changes,
+            bootstrap_changes=no_changes,
+            pkg_index_path=cimple_pi,
             parallel=1,
         )
 
@@ -507,8 +552,9 @@ class TestSnapshotOps:
         # relationship. This is to verify that the order of packages specified does not matter.
         cimple.snapshot.ops.process_changes(
             snapshot,
-            changes,
-            cimple_pi,
+            pkg_changes=changes,
+            bootstrap_changes=no_changes,
+            pkg_index_path=cimple_pi,
             parallel=1,
         )
 
@@ -558,8 +604,9 @@ class TestSnapshotOps:
         # WHEN: adding a package to the snapshot
         cimple.snapshot.ops.process_changes(
             snapshot,
-            changes,
-            cimple_pi,
+            pkg_changes=changes,
+            bootstrap_changes=no_changes,
+            pkg_index_path=cimple_pi,
             parallel=1,
         )
 
@@ -589,7 +636,9 @@ class TestComputeBuildGraph:
         )
 
         # WHEN: computing the build graph
-        build_graph = cimple.snapshot.ops.compute_build_graph(snapshot, changes)
+        build_graph = cimple.snapshot.ops.compute_build_graph(
+            snapshot, pkg_changes=changes, bootstrap_changes=no_changes
+        )
 
         # THEN: the build graph is empty
         assert build_graph.graph.number_of_nodes() == 0
@@ -607,7 +656,9 @@ class TestComputeBuildGraph:
         )
 
         # WHEN: computing the build graph
-        build_graph = cimple.snapshot.ops.compute_build_graph(snapshot, changes)
+        build_graph = cimple.snapshot.ops.compute_build_graph(
+            snapshot, pkg_changes=changes, bootstrap_changes=no_changes
+        )
 
         # THEN: the build graph contains the new package
         assert build_graph.graph.number_of_nodes() == 6
