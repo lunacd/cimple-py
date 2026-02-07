@@ -259,7 +259,7 @@ class TestSnapshotUpdate:
         pkg_processor = cimple.pkg.ops.PkgOps()
 
         # WHEN: removing a package
-        pkg_to_remove = cimple.models.pkg.SrcPkgId("pkg2")
+        pkg_to_remove = cimple.models.pkg.SrcPkgId("pkg1")
         snapshot.update_with_changes(
             pkg_changes=cimple.models.snapshot.SnapshotChanges.model_construct(
                 add=[], remove=[pkg_to_remove], update=[]
@@ -271,7 +271,26 @@ class TestSnapshotUpdate:
 
         # THEN: the package is removed from the snapshot
         assert pkg_to_remove not in snapshot.src_pkg_map
-        assert cimple.models.pkg.BinPkgId("pkg2-bin") not in snapshot.bin_pkg_map
+        assert cimple.models.pkg.BinPkgId("pkg1-bin") not in snapshot.bin_pkg_map
+
+    @pytest.mark.usefixtures("basic_cimple_store")
+    def test_remove_needed_pkg(self, cimple_pi: pathlib.Path):
+        # GIVEN: a snapshot
+        snapshot = cimple.snapshot.core.load_snapshot("test-snapshot")
+        pkg_processor = cimple.pkg.ops.PkgOps()
+
+        # WHEN: removing a package that is needed by other packages
+        # THEN: an exception is raised because the snapshot cannot have broken edges
+        pkg_to_remove = cimple.models.pkg.SrcPkgId("pkg2")
+        with pytest.raises(RuntimeError):
+            snapshot.update_with_changes(
+                pkg_changes=cimple.models.snapshot.SnapshotChanges.model_construct(
+                    add=[], remove=[pkg_to_remove], update=[]
+                ),
+                bootstrap_changes=no_changes,
+                pkg_processor=pkg_processor,
+                pkg_index_path=cimple_pi,
+            )
 
     @pytest.mark.usefixtures("basic_cimple_store")
     def test_add_pkg(self, cimple_pi: pathlib.Path):
@@ -361,10 +380,12 @@ class TestSnapshotUpdate:
         )
 
         # THEN: the bootstrap package is added to the snapshot
-        assert cimple.models.pkg.SrcPkgId("bootstrap1") in snapshot.src_pkg_map
-        assert cimple.models.pkg.BinPkgId("bootstrap1-bin") in snapshot.bin_pkg_map
-        assert cimple.models.pkg.SrcPkgId("bootstrap:bootstrap1") in snapshot.src_pkg_map
-        assert cimple.models.pkg.BinPkgId("bootstrap:bootstrap1-bin") in snapshot.bin_pkg_map
+        assert cimple.models.pkg.SrcPkgId("bootstrap1") in snapshot.bootstrap_src_pkg_map
+        assert cimple.models.pkg.BinPkgId("bootstrap1-bin") in snapshot.bootstrap_bin_pkg_map
+        assert cimple.models.pkg.SrcPkgId("bootstrap:bootstrap1") in snapshot.bootstrap_src_pkg_map
+        assert (
+            cimple.models.pkg.BinPkgId("bootstrap:bootstrap1-bin") in snapshot.bootstrap_bin_pkg_map
+        )
 
         # THEN: the prev packages are not added to the snapshot because they are part of the
         # previous snapshot
@@ -375,6 +396,44 @@ class TestSnapshotUpdate:
             cimple.models.pkg.SrcPkgId("bootstrap1"),
             cimple.models.pkg.BinPkgId("bootstrap:bootstrap1-bin"),
         )
+
+    @pytest.mark.usefixtures("basic_cimple_store")
+    def test_convert_to_bootstrap(self, cimple_pi: pathlib.Path):
+        # GIVEN: a snapshot with a normal package
+        snapshot = cimple.snapshot.core.load_snapshot("test-snapshot")
+        pkg_processor = cimple.pkg.ops.PkgOps()
+
+        # WHEN: converting the package to bootstrap
+        pkg_id = cimple.models.pkg.SrcPkgId("pkg4")
+        changes = cimple.models.snapshot.SnapshotChanges.model_construct(
+            add=[],
+            remove=[pkg_id],
+            update=[],
+        )
+        bootstrap_changes = cimple.models.snapshot.SnapshotChanges.model_construct(
+            add=[
+                cimple.models.snapshot.SnapshotChangeAdd.model_construct(
+                    name="pkg4", version="1.0-1"
+                )
+            ],
+            remove=[],
+            update=[],
+        )
+        snapshot.update_with_changes(
+            pkg_changes=changes,
+            bootstrap_changes=bootstrap_changes,
+            pkg_processor=pkg_processor,
+            pkg_index_path=cimple_pi,
+        )
+
+        # THEN: the package is now in the bootstrap package map
+        assert pkg_id in snapshot.bootstrap_src_pkg_map
+        assert cimple.models.pkg.BinPkgId("pkg4-bin") in snapshot.bootstrap_bin_pkg_map
+        assert cimple.models.pkg.bootstrap_src_id(pkg_id) in snapshot.bootstrap_src_pkg_map
+
+        # THEN: the package is removed from the normal package map
+        assert pkg_id not in snapshot.src_pkg_map
+        assert cimple.models.pkg.BinPkgId("pkg4-bin") not in snapshot.bin_pkg_map
 
 
 class TestSnapshotOps:

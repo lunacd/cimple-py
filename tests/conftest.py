@@ -68,7 +68,7 @@ def basic_cimple_store_fixture(fs: pyfakefs.fake_filesystem.FakeFilesystem) -> N
             },
             {
                 "name": "pkg4",
-                "version": "1.0",
+                "version": "1.0-1",
                 "pkg_type": "src",
                 "build_depends": [],
                 "binary_packages": ["pkg4-bin"],
