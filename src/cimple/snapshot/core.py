@@ -53,6 +53,8 @@ class CimpleSnapshot:
             for pkg in snapshot_data.bootstrap_pkgs
             if pkg.root.pkg_type == "bin"
         }
+        # The broken edges are from value to key
+        self.broken_edges: dict[pkg_models.PkgId, list[pkg_models.PkgId]] = {}
 
         # Build dependency graph
         self.graph = nx.DiGraph()
@@ -237,12 +239,14 @@ class CimpleSnapshot:
         pkg_id: pkg_models.SrcPkgId,
         pkg_version: str,
         build_depends: list[pkg_models.BinPkgId],
+        bootstrap: bool = False,
     ) -> None:
         """
         Add a source package to the snapshot.
         This does not add its binary packages; they should be added separately.
         """
-        if pkg_id in self.src_pkg_map:
+        src_pkg_map = self.bootstrap_src_pkg_map if bootstrap else self.src_pkg_map
+        if pkg_id in src_pkg_map:
             raise RuntimeError(f"Package {pkg_id} already exists in snapshot.")
 
         # Add package to snapshot map
@@ -253,15 +257,7 @@ class CimpleSnapshot:
             binary_packages=[],
             pkg_type="src",
         )
-        self.src_pkg_map[pkg_id] = new_src_pkg
-
-        # Add package to changes
-        self.changes.add.append(
-            cimple.models.snapshot.SnapshotChangeAdd(
-                name=pkg_id.name,
-                version=pkg_version,
-            )
-        )
+        src_pkg_map[pkg_id] = new_src_pkg
 
         # Add package to graph
         self.graph.add_node(pkg_id)
@@ -274,11 +270,15 @@ class CimpleSnapshot:
         src_pkg: pkg_models.SrcPkgId,
         pkg_sha256: str,
         depends: list[pkg_models.BinPkgId],
+        bootstrap: bool = False,
     ) -> None:
         """
         Add a binary package to the snapshot.
         """
-        assert pkg_id not in self.bin_pkg_map, f"Package {pkg_id} already exists in snapshot."
+        bin_pkg_map = self.bootstrap_bin_pkg_map if bootstrap else self.bin_pkg_map
+        src_pkg_map = self.bootstrap_src_pkg_map if bootstrap else self.src_pkg_map
+
+        assert pkg_id not in bin_pkg_map, f"Package {pkg_id} already exists in snapshot."
 
         # Add package to snapshot map
         new_bin_pkg = snapshot_models.SnapshotBinPkg.model_construct(
@@ -288,11 +288,11 @@ class CimpleSnapshot:
             depends=depends,
             pkg_type="bin",
         )
-        self.bin_pkg_map[pkg_id] = new_bin_pkg
+        bin_pkg_map[pkg_id] = new_bin_pkg
 
         # Add binary package to its source package
-        assert src_pkg in self.src_pkg_map, f"Source package {src_pkg} not found in snapshot."
-        src_snapshot_pkg = self.src_pkg_map[src_pkg]
+        assert src_pkg in src_pkg_map, f"Source package {src_pkg} not found in snapshot."
+        src_snapshot_pkg = src_pkg_map[src_pkg]
         src_snapshot_pkg.binary_packages.append(pkg_id)
 
         # Add package to graph
@@ -300,20 +300,38 @@ class CimpleSnapshot:
         for dep in depends:
             self.graph.add_edge(pkg_id, dep)
 
+        # Restore broken edges if the added binary package is the target of any broken edges
+        if pkg_id in self.broken_edges:
+            from_nodes = self.broken_edges[pkg_id]
+            for from_node in from_nodes:
+                self.graph.add_edge(from_node, pkg_id)
+            del self.broken_edges[pkg_id]
+
     def add_pkg(
         self,
         pkg_config: cimple.models.pkg_config.PkgConfig,
         dependency_data: cimple.pkg.core.PackageDependencies,
+        *,
+        bootstrap: bool = False,
     ) -> None:
         """
         Add a package and its binary packages to the snapshot.
         This is a convenience method that dispatches add_src_pkg and add_bin_pkg.
         """
         self.add_src_pkg(
-            pkg_id=pkg_models.SrcPkgId(pkg_config.root.name),
+            pkg_id=pkg_config.root.id,
             pkg_version=pkg_config.root.version,
-            build_depends=dependency_data.build_depends,
+            build_depends=dependency_data.build_depends[pkg_config.root.id],
+            bootstrap=bootstrap,
         )
+        if bootstrap:
+            bootstrap_src_id = cimple.models.pkg.bootstrap_src_id(pkg_config.root.id)
+            self.add_src_pkg(
+                pkg_id=bootstrap_src_id,
+                pkg_version=pkg_config.root.version,
+                build_depends=dependency_data.build_depends[bootstrap_src_id],
+                bootstrap=bootstrap,
+            )
         for binary_package in pkg_config.root.binary_packages:
             if binary_package in self.bin_pkg_map:
                 raise RuntimeError(f"Binary package {binary_package} already exists in snapshot.")
@@ -322,7 +340,21 @@ class CimpleSnapshot:
                 src_pkg=pkg_config.root.id,
                 pkg_sha256="placeholder",  # SHA will be filled in separately
                 depends=dependency_data.depends[binary_package],
+                bootstrap=bootstrap,
             )
+            if bootstrap:
+                bootstrap_bin_id = cimple.models.pkg.bootstrap_bin_id(binary_package)
+                if bootstrap_bin_id in self.bin_pkg_map:
+                    raise RuntimeError(
+                        f"Binary package {bootstrap_bin_id} already exists in snapshot."
+                    )
+                self.add_bin_pkg(
+                    pkg_id=bootstrap_bin_id,
+                    src_pkg=cimple.models.pkg.bootstrap_src_id(pkg_config.root.id),
+                    pkg_sha256="placeholder",  # SHA will be filled in separately
+                    depends=dependency_data.depends[bootstrap_bin_id],
+                    bootstrap=bootstrap,
+                )
 
     def remove_pkg(self, pkg_id: pkg_models.SrcPkgId) -> None:
         """
@@ -338,6 +370,12 @@ class CimpleSnapshot:
             # Remove all dependency edges for this binary package
             for dep in bin_pkg_data.depends:
                 self.graph.remove_edge(bin_pkg_id, dep)
+
+            # Remove all depends on this binary package
+            # Mark those edges as being broken
+            for dep in list(self.graph.predecessors(bin_pkg_id)):
+                self.broken_edges.setdefault(bin_pkg_id, []).append(dep)
+                self.graph.remove_edge(dep, bin_pkg_id)
 
             del self.bin_pkg_map[bin_pkg_id]
             self.graph.remove_node(bin_pkg_id)
@@ -372,10 +410,68 @@ class CimpleSnapshot:
 
         return True
 
+    def is_not_broken(self) -> bool:
+        """
+        Check that the snapshot has no broken edges.
+        A broken edge is an edge where the source package exists but the target package does not
+        exist.
+        """
+        return len(self.broken_edges) == 0
+
+    def _update_with_adds(
+        self,
+        pkg_adds: list[cimple.models.snapshot.SnapshotChangeAdd],
+        pkg_processor: cimple.pkg.ops.PkgOps,
+        pkg_index_path: pathlib.Path,
+        bootstrap: bool = False,
+    ):
+        """
+        Helper to process package additions.
+        """
+        for pkg_add in pkg_adds:
+            dependency_data = pkg_processor.resolve_dependencies(
+                pkg_add.id, pkg_add.version, pi_path=pkg_index_path, is_bootstrap=bootstrap
+            )
+            config = cimple.models.pkg_config.load_pkg_config(
+                pkg_index_path, pkg_add.id, pkg_add.version
+            )
+            self.add_pkg(config, dependency_data, bootstrap=bootstrap)
+
+    def _update_with_updates(
+        self,
+        pkg_updates: list[cimple.models.snapshot.SnapshotChangeUpdate],
+        pkg_processor: cimple.pkg.ops.PkgOps,
+        pkg_index_path: pathlib.Path,
+        bootstrap: bool = False,
+    ):
+        """
+        Helper to process package updates.
+        """
+        for pkg_update in pkg_updates:
+            # Remove old package
+            self.remove_pkg(pkg_update.id)
+
+            if bootstrap:
+                bootstrap_src_id = cimple.models.pkg.bootstrap_src_id(pkg_update.id)
+                self.remove_pkg(bootstrap_src_id)
+
+            # Add new package
+            config = cimple.models.pkg_config.load_pkg_config(
+                pkg_index_path, pkg_update.id, pkg_update.to_version
+            )
+            dependency_data = pkg_processor.resolve_dependencies(
+                pkg_update.id,
+                pkg_update.to_version,
+                pi_path=pkg_index_path,
+                is_bootstrap=bootstrap,
+            )
+            self.add_pkg(config, dependency_data, bootstrap=bootstrap)
+
     def update_with_changes(
         self,
         *,
-        changes: cimple.models.snapshot.SnapshotChanges,
+        pkg_changes: cimple.models.snapshot.SnapshotChanges,
+        bootstrap_changes: cimple.models.snapshot.SnapshotChanges,
         pkg_processor: cimple.pkg.ops.PkgOps,
         pkg_index_path: pathlib.Path,
     ):
@@ -383,41 +479,51 @@ class CimpleSnapshot:
         Compute the build order for the packages to be added/updated.
         Also computes the new build dependency graph as part of the process.
         """
-        # First process additions, because updates may depend on newly added packages
-        for pkg_add in changes.add:
-            dependency_data = pkg_processor.resolve_dependencies(
-                pkg_add.id, pkg_add.version, pi_path=pkg_index_path
-            )
-            config = cimple.models.pkg_config.load_pkg_config(
-                pkg_index_path, pkg_add.id, pkg_add.version
-            )
-            self.add_pkg(config, dependency_data)
 
-        # Then process updates
-        for pkg_update in changes.update:
-            # Remove old package
-            self.remove_pkg(pkg_update.id)
+        # Changes to the graph is processed in the following order:
+        # 1. Bootstrap and normal removal (this step might leave incomplete edges in the graph)
+        # 2. Bootstrap addition
+        # 3. Bootstrap updates (updates might depend on newly added bootstrap packages)
+        # 4. Normal addition (normal additions can depend on bootstrap additions)
+        # 5. Normal updates (normal updates can depend on bootstrap additions and normal additions)
+        # 6. Validate that all dependencies are satisfied
 
-            # Add new package
-            config = cimple.models.pkg_config.load_pkg_config(
-                pkg_index_path, pkg_models.SrcPkgId(pkg_update.name), pkg_update.to_version
-            )
-            dependency_data = pkg_processor.resolve_dependencies(
-                pkg_models.SrcPkgId(pkg_update.name),
-                pkg_update.to_version,
-                pi_path=pkg_index_path,
-            )
-            self.add_pkg(config, dependency_data)
+        # Bootstrap removals
+        for pkg_remove in bootstrap_changes.remove:
+            self.remove_pkg(pkg_remove)
+            self.remove_pkg(cimple.models.pkg.bootstrap_src_id(pkg_remove))
 
-        # Finally process removal
-        for pkg_remove in changes.remove:
+        # Normal removals
+        for pkg_remove in pkg_changes.remove:
             self.remove_pkg(pkg_remove)
 
+        # Bootstrap additions
+        self._update_with_adds(bootstrap_changes.add, pkg_processor, pkg_index_path, bootstrap=True)
+
+        # Bootstrap updates
+        self._update_with_updates(
+            bootstrap_changes.update, pkg_processor, pkg_index_path, bootstrap=True
+        )
+
+        # Normal additions
+        self._update_with_adds(pkg_changes.add, pkg_processor, pkg_index_path, bootstrap=False)
+
+        # Normal updates
+        self._update_with_updates(
+            pkg_changes.update, pkg_processor, pkg_index_path, bootstrap=False
+        )
+
         # Resolve all build and runtime dependencies and make sure they are satisfied
-        for pkg in itertools.chain(changes.add, changes.update):
+        for pkg in itertools.chain(pkg_changes.add, pkg_changes.update):
             deps_are_valid = self.validate_depends(pkg.id)
             if not deps_are_valid:
                 raise RuntimeError(f"Unable to resolve dependencies for package {pkg.id.name}")
+
+        if not self.is_not_broken():
+            raise RuntimeError(
+                "Snapshot has broken edges after applying changes! Broken edges:"
+                f" {self.broken_edges}"
+            )
 
     def compare_pkgs_with(self, rhs: CimpleSnapshot) -> None | pkg_models.PkgId:
         """

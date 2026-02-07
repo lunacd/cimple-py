@@ -64,3 +64,19 @@ def src_pkg_id_list_validator(input: list[str]) -> list[typing.Any]:
         }
         for name in input
     ]
+
+
+def bootstrap_src_id(pkg_id: SrcPkgId) -> SrcPkgId:
+    return SrcPkgId(f"bootstrap:{pkg_id.name}")
+
+
+def bootstrap_bin_id(pkg_id: BinPkgId) -> BinPkgId:
+    return BinPkgId(f"bootstrap:{pkg_id.name}")
+
+
+def prev_src_id(pkg_id: SrcPkgId) -> SrcPkgId:
+    return SrcPkgId(f"prev:{pkg_id.name}")
+
+
+def prev_bin_id(pkg_id: BinPkgId) -> BinPkgId:
+    return BinPkgId(f"prev:{pkg_id.name}")

@@ -1,14 +1,15 @@
+
 schema_version = 0
-name = "pkg1"
-version = "2.0-1"
+name = "pkg4"
+version = "1.0-1"
 pkg_type = "custom"
 
 [pkg]
 supported_platforms = ["windows-x86_64"]
-build_depends = ["pkg3-bin"]
+build_depends = []
 
-[binaries.pkg1-bin2]
-depends = ["pkg4-bin"]
+[binaries.pkg4-bin]
+depends = []
 
 [input]
 source_version = "0.0.1"

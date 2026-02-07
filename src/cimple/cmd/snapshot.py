@@ -42,6 +42,7 @@ def change(
 
     # TODO: handle removal
     # TODO: handle version update
+    # TODO: add bootstrap support
     changes = cimple.models.snapshot.SnapshotChanges.model_construct(
         add=[
             cimple.models.snapshot.SnapshotChangeAdd.model_construct(
@@ -56,7 +57,10 @@ def change(
 
     snapshot_ops.process_changes(
         origin_snapshot=snapshot,
-        changes=changes,
+        pkg_changes=changes,
+        bootstrap_changes=cimple.models.snapshot.SnapshotChanges.model_construct(
+            add=[], remove=[], update=[]
+        ),
         pkg_index_path=pathlib.Path(pkg_index),
         parallel=parallel,
         extra_paths=extra_paths,
@@ -73,11 +77,26 @@ def reproduce(
     snapshot = snapshot_core.load_snapshot("root")
     snapshot_to_reproduce = snapshot_core.load_snapshot(reproduce_snapshot_name)
 
+    bootstrap_pkgs_to_add = [
+        snapshot_ops.VersionedSourcePackage(id=package_id, version=package_data.version)
+        for package_id, package_data in snapshot_to_reproduce.bootstrap_src_pkg_map.items()
+    ]
+    bootstrap_changes = cimple.models.snapshot.SnapshotChanges.model_construct(
+        add=[
+            cimple.models.snapshot.SnapshotChangeAdd.model_construct(
+                name=pkg.id.name,
+                version=pkg.version,
+            )
+            for pkg in bootstrap_pkgs_to_add
+        ],
+        remove=[],
+        update=[],
+    )
     pkgs_to_add = [
         snapshot_ops.VersionedSourcePackage(id=package_id, version=package_data.version)
         for package_id, package_data in snapshot_to_reproduce.src_pkg_map.items()
     ]
-    changes = cimple.models.snapshot.SnapshotChanges.model_construct(
+    pkg_changes = cimple.models.snapshot.SnapshotChanges.model_construct(
         add=[
             cimple.models.snapshot.SnapshotChangeAdd.model_construct(
                 name=pkg.id.name,
@@ -91,7 +110,8 @@ def reproduce(
 
     snapshot_ops.process_changes(
         origin_snapshot=snapshot,
-        changes=changes,
+        pkg_changes=pkg_changes,
+        bootstrap_changes=bootstrap_changes,
         pkg_index_path=pathlib.Path(pkg_index),
         parallel=parallel,
     )

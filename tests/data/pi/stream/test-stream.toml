@@ -16,4 +16,4 @@ version = "1.0"
 
 [[pkgs]]
 name = "pkg4"
-version = "1.0"
+version = "1.0-1"

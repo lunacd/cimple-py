@@ -10,6 +10,8 @@ import requests
 import cimple.constants
 import cimple.hash
 import cimple.logging
+import cimple.models
+import cimple.models.pkg
 import cimple.pkg.core
 import cimple.process
 import cimple.snapshot.core as snapshot_core
@@ -284,14 +286,48 @@ class PkgOps:
                 )
 
     def resolve_dependencies(
-        self, package_id: pkg_models.SrcPkgId, package_version: str, *, pi_path: pathlib.Path
+        self,
+        package_id: pkg_models.SrcPkgId,
+        package_version: str,
+        *,
+        pi_path: pathlib.Path,
+        is_bootstrap: bool = False,
     ) -> cimple.pkg.core.PackageDependencies:
         config = pkg_config_models.load_pkg_config(pi_path, package_id, package_version)
+        # Currently only custom packages are possibly bootstrap packages
         if config.root.pkg_type == "custom":
-            depends: dict[pkg_models.BinPkgId, list[pkg_models.BinPkgId]] = {
-                bin_pkg: bin_pkg_data.depends
-                for bin_pkg, bin_pkg_data in config.root.binaries.items()
-            }
+            if is_bootstrap:
+                build_depends: dict[pkg_models.SrcPkgId, list[pkg_models.BinPkgId]] = {}
+                depends: dict[pkg_models.BinPkgId, list[pkg_models.BinPkgId]] = {}
+
+                # Bootstrap packages build depends on packages in the previous snapshot
+                build_depends[cimple.models.pkg.bootstrap_src_id(package_id)] = [
+                    cimple.models.pkg.prev_bin_id(bin_pkg) for bin_pkg in config.root.build_depends
+                ]
+                # Normal packages depend on bootstrap versions of their dependencies
+                build_depends[package_id] = [
+                    cimple.models.pkg.bootstrap_bin_id(bin_pkg)
+                    for bin_pkg in config.root.build_depends
+                ]
+
+                for bin_pkg, bin_pkg_data in config.root.binaries.items():
+                    # Bootstrap packages depend on other bootstrap packages
+                    depends.update(
+                        {
+                            cimple.models.pkg.bootstrap_bin_id(bin_pkg): [
+                                cimple.models.pkg.bootstrap_bin_id(dep)
+                                for dep in bin_pkg_data.depends
+                            ]
+                        }
+                    )
+                    # Normal packages depend on other normal packages
+                    depends[bin_pkg] = bin_pkg_data.depends
+            else:
+                depends: dict[pkg_models.BinPkgId, list[pkg_models.BinPkgId]] = {
+                    bin_pkg: bin_pkg_data.depends
+                    for bin_pkg, bin_pkg_data in config.root.binaries.items()
+                }
+                build_depends = {package_id: config.root.build_depends}
         elif config.root.pkg_type == "cygwin":
             self.initialize_cygwin()
             assert self.cygwin_release is not None
@@ -304,8 +340,7 @@ class PkgOps:
                     pkg_models.BinPkgId(dep) for dep in pkg_info.depends
                 ]
             }
+            build_depends = {package_id: []}
         else:
             raise RuntimeError(f"Unknown package type {config.root.pkg_type}")
-        return cimple.pkg.core.PackageDependencies(
-            build_depends=config.root.build_depends, depends=depends
-        )
+        return cimple.pkg.core.PackageDependencies(build_depends=build_depends, depends=depends)
