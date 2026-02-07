@@ -47,7 +47,7 @@ jobs:
   lint:
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-2025]
+        os: [ubuntu-latest, windows-2025-vs2026]
     name: lint-${{ matrix.os }}
     runs-on: ${{ matrix.os }}
 
