@@ -1,15 +1,12 @@
 import pathlib
 import tarfile
 import tempfile
-import typing
 
-import networkx as nx
 import pydantic
 
 import cimple.graph
 import cimple.models.pkg
 import cimple.models.snapshot
-import cimple.pkg.core
 import cimple.pkg.ops
 import cimple.snapshot.core
 from cimple import constants, logging
@@ -37,7 +34,7 @@ def compute_build_graph(
     The returned graph is a requirement graph, where an edge from A -> B means A requires B to be
     available first. This is essentially the reverse of the dependency graph.
     """
-    requirement_graph: nx.DiGraph[pkg_models.PkgId] = snapshot.graph.reverse(copy=True)
+    requirement_graph: cimple.graph.Graph[pkg_models.PkgId] = snapshot.graph.reverse(copy=True)
 
     pkgs_to_build = set()
 
@@ -57,14 +54,10 @@ def compute_build_graph(
     # All updated packages and their dependents need to be built
     for affected_pkg in all_affected_pkgs:
         pkgs_to_build.add(affected_pkg)
-        pkgs_to_build.update(nx.descendants(requirement_graph, affected_pkg))
+        pkgs_to_build.update(requirement_graph.descendants(affected_pkg))
 
     # Get subgraph of packages to build
-    return cimple.graph.BuildGraph(
-        typing.cast(
-            "nx.DiGraph[pkg_models.PkgId]", requirement_graph.subgraph(pkgs_to_build).copy()
-        )
-    )
+    return cimple.graph.BuildGraph(requirement_graph.subgraph(pkgs_to_build))
 
 
 def execute_build_graph(

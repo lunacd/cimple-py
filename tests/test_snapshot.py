@@ -157,7 +157,7 @@ class TestSnapshotCore:
             cimple.models.pkg.SrcPkgId("pkg2"),
             cimple.models.pkg.BinPkgId("pkg2-bin"),
         }
-        actual_nodes = set(snapshot.graph.nodes)
+        actual_nodes = set(snapshot.graph.nodes())
         assert actual_nodes == expected_nodes
 
         # THEN: the snapshot graph has all expected edges
@@ -219,7 +219,7 @@ class TestSnapshotCore:
             ),
             (cimple.models.pkg.BinPkgId("pkg2-bin"), cimple.models.pkg.BinPkgId("pkg1-bin")),
         }
-        actual_edges = set(snapshot.graph.edges)
+        actual_edges = set(snapshot.graph.edges())
         assert actual_edges == expected_edges
 
 
@@ -249,8 +249,8 @@ class TestSnapshotUpdate:
         # THEN: snapshot remains unchanged
         assert snapshot.src_pkg_map == original_snapshot.src_pkg_map
         assert snapshot.bin_pkg_map == original_snapshot.bin_pkg_map
-        assert snapshot.graph.nodes == original_snapshot.graph.nodes
-        assert snapshot.graph.edges == original_snapshot.graph.edges
+        assert snapshot.graph.nodes() == original_snapshot.graph.nodes()
+        assert snapshot.graph.edges() == original_snapshot.graph.edges()
 
     @pytest.mark.usefixtures("basic_cimple_store")
     def test_remove_pkg(self, cimple_pi: pathlib.Path):
