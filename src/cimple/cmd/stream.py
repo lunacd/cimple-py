@@ -1,3 +1,5 @@
+# Pathlib is by pydantic at runtime
+import pathlib  # noqa: TC003
 import typing
 
 import typer
@@ -9,9 +11,6 @@ import cimple.snapshot.core
 import cimple.snapshot.ops
 import cimple.stream
 
-if typing.TYPE_CHECKING:
-    import pathlib
-
 stream_app = typer.Typer()
 
 
@@ -19,7 +18,8 @@ stream_app = typer.Typer()
 def update(
     stream: str,
     pkg_index: typing.Annotated[pathlib.Path, typer.Option()],
-    parallel: typing.Annotated[int, typer.Option(help="Number of parallel jobs", default=1)],
+    dry_run: typing.Annotated[bool, typer.Option(help="Do not run the actual build")] = False,
+    parallel: typing.Annotated[int, typer.Option(help="Number of parallel jobs")] = 1,
 ):
     """
     Update stream snapshot based on the latest stream config.
@@ -44,6 +44,16 @@ def update(
     pkg_changes, bootstrap_changes = cimple.stream.resolve_snapshot_changes(
         stream_config=stream_config, current_snapshot=snapshot
     )
+
+    if dry_run:
+        print(
+            "The following changes would be applied to the snapshot:",
+            pkg_changes,
+        )
+        print(
+            "The following bootstrap changes would be applied to the snapshot:", bootstrap_changes
+        )
+        return
 
     # Process changes
     cimple.logging.info("Processing snapshot changes")

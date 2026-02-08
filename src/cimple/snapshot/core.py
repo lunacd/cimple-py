@@ -3,8 +3,6 @@ import datetime
 import itertools
 import typing
 
-import networkx as nx
-
 import cimple.constants
 import cimple.graph
 import cimple.models
@@ -53,11 +51,9 @@ class CimpleSnapshot:
             for pkg in snapshot_data.bootstrap_pkgs
             if pkg.root.pkg_type == "bin"
         }
-        # The broken edges are from value to key
-        self.broken_edges: dict[pkg_models.PkgId, list[pkg_models.PkgId]] = {}
 
         # Build dependency graph
-        self.graph = nx.DiGraph()
+        self.graph = cimple.graph.Graph[pkg_models.PkgId]()
 
         # Add bootstrap nodes
         # All bootstrap packages (source or binary) are translated to three nodes:
@@ -162,8 +158,7 @@ class CimpleSnapshot:
         """
         Get all binary packages that are required during the build a source package.
         """
-        edges = nx.generic_bfs_edges(
-            self.graph,
+        edges = self.graph.generic_bfs_edges(
             src_pkg,
             neighbors=lambda node: cimple.graph.binary_neighbors(self.graph, node),
         )
@@ -177,8 +172,7 @@ class CimpleSnapshot:
         """
         Get all binary packages that are required at runtime by a binary package.
         """
-        edges = nx.generic_bfs_edges(
-            self.graph,
+        edges = self.graph.generic_bfs_edges(
             bin_pkg,
             neighbors=lambda node: cimple.graph.binary_neighbors(self.graph, node),
         )
@@ -300,13 +294,6 @@ class CimpleSnapshot:
         for dep in depends:
             self.graph.add_edge(pkg_id, dep)
 
-        # Restore broken edges if the added binary package is the target of any broken edges
-        if pkg_id in self.broken_edges:
-            from_nodes = self.broken_edges[pkg_id]
-            for from_node in from_nodes:
-                self.graph.add_edge(from_node, pkg_id)
-            del self.broken_edges[pkg_id]
-
     def add_pkg(
         self,
         pkg_config: cimple.models.pkg_config.PkgConfig,
@@ -371,11 +358,11 @@ class CimpleSnapshot:
             for dep in bin_pkg_data.depends:
                 self.graph.remove_edge(bin_pkg_id, dep)
 
-            # Remove all depends on this binary package
-            # Mark those edges as being broken
-            for dep in list(self.graph.predecessors(bin_pkg_id)):
-                self.broken_edges.setdefault(bin_pkg_id, []).append(dep)
-                self.graph.remove_edge(dep, bin_pkg_id)
+            # Remove connection with source package
+            self.graph.remove_edge(bin_pkg_id, pkg_id)
+
+            # Do not remove any runtime dependency on this package
+            # When the node is removed, all edges to this node will be marked as broken edges.
 
             del self.bin_pkg_map[bin_pkg_id]
             self.graph.remove_node(bin_pkg_id)
@@ -410,13 +397,11 @@ class CimpleSnapshot:
 
         return True
 
-    def is_not_broken(self) -> bool:
+    def is_broken(self) -> bool:
         """
         Check that the snapshot has no broken edges.
-        A broken edge is an edge where the source package exists but the target package does not
-        exist.
         """
-        return len(self.broken_edges) == 0
+        return self.graph.is_broken()
 
     def _update_with_adds(
         self,
@@ -519,10 +504,10 @@ class CimpleSnapshot:
             if not deps_are_valid:
                 raise RuntimeError(f"Unable to resolve dependencies for package {pkg.id.name}")
 
-        if not self.is_not_broken():
+        if self.is_broken():
             raise RuntimeError(
                 "Snapshot has broken edges after applying changes! Broken edges:"
-                f" {self.broken_edges}"
+                f" {self.graph.broken_edges}"
             )
 
     def compare_pkgs_with(self, rhs: CimpleSnapshot) -> None | pkg_models.PkgId:
