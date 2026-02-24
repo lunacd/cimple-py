@@ -13,6 +13,8 @@ jobs:
         os: [ubuntu-latest, windows-2025-vs2026]
     name: test-${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    environment:
+      name: codacy
 
     steps:
       - uses: actions/checkout@v4
@@ -28,21 +30,11 @@ jobs:
         run: |
           uv run pytest --cov --cov-branch --cov-report=xml --junitxml=junit.xml
 
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v5
+      - name: Run codacy-coverage-reporter
+        uses: codacy/codacy-coverage-reporter-action@v1.3.0
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          slug: lunacd/cimple-py
-          flags: ${{ matrix.os }}
-
-      - name: Upload test results to Codecov
-        if: ${{ !cancelled() }} 
-        uses: codecov/codecov-action@v5
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          slug: lunacd/cimple-py
-          flags: ${{ matrix.os }}
-          report_type: test_results
+          api-token: ${{ secrets.CODACY_API_TOKEN }}
+          coverage-reports: coverage.xml
 
   lint:
     strategy:
