@@ -75,8 +75,7 @@ class TestSnapshotCore:
                     "name": "bootstrap1",
                     "version": "1.0",
                     "pkg_type": "src",
-                    # It's okay for bootstrap packages to build depend on itself and each other
-                    "build_depends": ["bootstrap1-bin", "bootstrap2-bin"],
+                    "build_depends": ["bootstrap:bootstrap1-bin", "bootstrap:bootstrap2-bin"],
                     "binary_packages": ["bootstrap1-bin"],
                 },
                 {
@@ -87,14 +86,42 @@ class TestSnapshotCore:
                     "depends": ["bootstrap2-bin"],
                 },
                 {
+                    "name": "bootstrap:bootstrap1",
+                    "version": "1.0",
+                    "pkg_type": "src",
+                    "build_depends": ["prev:bootstrap1-bin", "prev:bootstrap2-bin"],
+                    "binary_packages": ["bootstrap:bootstrap1-bin"],
+                },
+                {
+                    "name": "bootstrap:bootstrap1-bin",
+                    "sha256": "dummy",
+                    "pkg_type": "bin",
+                    "compression_method": "xz",
+                    "depends": ["bootstrap:bootstrap2-bin"],
+                },
+                {
                     "name": "bootstrap2",
                     "version": "1.0",
                     "pkg_type": "src",
-                    "build_depends": ["bootstrap1-bin"],
+                    "build_depends": ["bootstrap:bootstrap1-bin"],
                     "binary_packages": ["bootstrap2-bin"],
                 },
                 {
                     "name": "bootstrap2-bin",
+                    "sha256": "dummy",
+                    "pkg_type": "bin",
+                    "compression_method": "xz",
+                    "depends": [],
+                },
+                {
+                    "name": "bootstrap:bootstrap2",
+                    "version": "1.0",
+                    "pkg_type": "src",
+                    "build_depends": ["prev:bootstrap1-bin"],
+                    "binary_packages": ["bootstrap:bootstrap2-bin"],
+                },
+                {
+                    "name": "bootstrap:bootstrap2-bin",
                     "sha256": "dummy",
                     "pkg_type": "bin",
                     "compression_method": "xz",
@@ -369,7 +396,7 @@ class TestSnapshotUpdate:
         pkg_processor = cimple.pkg.ops.PkgOps()
 
         # WHEN: adding a bootstrap package
-        pkg_to_add = cimple.models.snapshot.SnapshotChangeAdd(name="bootstrap1", version="1.0.0-1")
+        pkg_to_add = cimple.models.snapshot.SnapshotChangeAdd(name="bootstrap2", version="1.0.0-1")
         snapshot.update_with_changes(
             pkg_changes=no_changes,
             bootstrap_changes=cimple.models.snapshot.SnapshotChanges.model_construct(
@@ -380,20 +407,20 @@ class TestSnapshotUpdate:
         )
 
         # THEN: the bootstrap package is added to the snapshot
-        assert cimple.models.pkg.SrcPkgId("bootstrap1") in snapshot.bootstrap_src_pkg_map
-        assert cimple.models.pkg.BinPkgId("bootstrap1-bin") in snapshot.bootstrap_bin_pkg_map
-        assert cimple.models.pkg.SrcPkgId("bootstrap:bootstrap1") in snapshot.bootstrap_src_pkg_map
+        assert cimple.models.pkg.SrcPkgId("bootstrap2") in snapshot.bootstrap_src_pkg_map
+        assert cimple.models.pkg.BinPkgId("bootstrap2-bin") in snapshot.bootstrap_bin_pkg_map
+        assert cimple.models.pkg.SrcPkgId("bootstrap:bootstrap2") in snapshot.bootstrap_src_pkg_map
         assert (
-            cimple.models.pkg.BinPkgId("bootstrap:bootstrap1-bin") in snapshot.bootstrap_bin_pkg_map
+            cimple.models.pkg.BinPkgId("bootstrap:bootstrap2-bin") in snapshot.bootstrap_bin_pkg_map
         )
 
         # THEN: the prev packages are not added to the snapshot because they are part of the
         # previous snapshot
-        assert cimple.models.pkg.BinPkgId("prev:bootstrap1-bin") not in snapshot.bin_pkg_map
+        assert cimple.models.pkg.BinPkgId("prev:bootstrap2-bin") not in snapshot.bin_pkg_map
 
         # THEN: the bootstrap package has correct dependency edges
         assert snapshot.graph.has_edge(
-            cimple.models.pkg.SrcPkgId("bootstrap1"),
+            cimple.models.pkg.SrcPkgId("bootstrap2"),
             cimple.models.pkg.BinPkgId("bootstrap:bootstrap1-bin"),
         )
 

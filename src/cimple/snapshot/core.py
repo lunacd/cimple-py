@@ -1,4 +1,3 @@
-import copy
 import datetime
 import itertools
 import typing
@@ -62,13 +61,6 @@ class CimpleSnapshot:
         # Bootstrap packages are built by pulling their deps from the previous snapshot, those
         # packages are denoted with the "prev:" prefix. Because they are always available, we
         # do not need to add them to the graph.
-        bootstrap_pkgs = {pkg.root.id for pkg in snapshot_data.bootstrap_pkgs}
-        for package in bootstrap_pkgs:
-            self.graph.add_node(package)
-            bootstrap_pkg_id = copy.deepcopy(package)
-            bootstrap_pkg_id.name = f"bootstrap:{package.name}"
-            self.graph.add_node(bootstrap_pkg_id)
-
         def add_edge(from_pkg: pkg_models.PkgId, to_pkg: pkg_models.PkgId):
             """
             Helper to add edge to graph with validation.
@@ -85,54 +77,12 @@ class CimpleSnapshot:
                 )
             self.graph.add_edge(from_pkg, to_pkg)
 
-        # Add dependency edges for bootstrap packages
-        for package in snapshot_data.bootstrap_pkgs:
-            if snapshot_models.snapshot_pkg_is_src(package.root):
-                # Binary packages depends on source package that built them
-                for bin_pkg in package.root.binary_packages:
-                    add_edge(bin_pkg, package.root.id)
-                    add_edge(
-                        cimple.models.pkg.BinPkgId(f"bootstrap:{bin_pkg.name}"),
-                        cimple.models.pkg.SrcPkgId(f"bootstrap:{package.root.name}"),
-                    )
-
-                # Packages in bootstrap set depends on the `bootstrap:` packages
-                # The `bootstrap:` variants' build-depends are pulled from previous snapshot, so the
-                # dep edges are not added here
-                #
-                # For example, src:a build depends on bin:bootstrap:a
-                # src:bootstrap:a has no build-depends that affects the dependency graph
-                #
-                # Also note that there's an implicit requirement that bootstrap packages can only
-                # build depend on other bootstrap packages. This is implicitly enforced because
-                # the non-bootstrap packages are not added to the graph yet.
-                for dep in package.root.build_depends:
-                    add_edge(package.root.id, cimple.models.pkg.BinPkgId(f"bootstrap:{dep.name}"))
-
-            elif snapshot_models.snapshot_pkg_is_bin(package.root):
-                # Binary bootstrap package depends on other binary packages
-                # Also note that there's an implicit requirement that bootstrap packages can only
-                # depend on other bootstrap packages. This is implicitly enforced because the
-                # non-bootstrap packages are not added to the graph yet.
-                #
-                # Bootstrap binary packages' runtime dependencies are resolved normally, as you
-                # would expect, for example:
-                #
-                # bin:a depends on bin:bootstrap:b
-                # bin:bootstrap:a depends on bin:bootstrap:b
-                for dep in package.root.depends:
-                    add_edge(package.root.id, dep)
-                    add_edge(
-                        cimple.models.pkg.BinPkgId(f"bootstrap:{package.root.name}"),
-                        cimple.models.pkg.BinPkgId(f"bootstrap:{dep.name}"),
-                    )
-
         # Add all other packages
-        for package in snapshot_data.pkgs:
+        for package in itertools.chain(snapshot_data.pkgs, snapshot_data.bootstrap_pkgs):
             self.graph.add_node(package.root.id)
 
         # Add dependency edges for normal packages
-        for package in snapshot_data.pkgs:
+        for package in itertools.chain(snapshot_data.pkgs, snapshot_data.bootstrap_pkgs):
             if snapshot_models.snapshot_pkg_is_src(package.root):
                 # Binary packages depends on source package that built them
                 for bin_pkg in package.root.binary_packages:
@@ -140,6 +90,10 @@ class CimpleSnapshot:
 
                 # Source package build-depends on other source packages
                 for dep in package.root.build_depends:
+                    # Do not add edges for `prev:` packages, as they are always available
+                    if cimple.models.pkg.is_prev_pkg(dep):
+                        continue
+
                     add_edge(package.root.id, dep)
 
             elif snapshot_models.snapshot_pkg_is_bin(package.root):
@@ -374,6 +328,30 @@ class CimpleSnapshot:
         # Remove source package
         del self.src_pkg_map[pkg_id]
         self.graph.remove_node(pkg_id)
+
+    def get_src_pkg(self, pkg_id: pkg_models.SrcPkgId) -> snapshot_models.SnapshotSrcPkg:
+        """
+        Get source package data from snapshot.
+        """
+        if pkg_id in self.src_pkg_map:
+            return self.src_pkg_map[pkg_id]
+
+        if pkg_id in self.bootstrap_src_pkg_map:
+            return self.bootstrap_src_pkg_map[pkg_id]
+
+        raise RuntimeError(f"Package {pkg_id} does not exist in snapshot.")
+
+    def get_bin_pkg(self, pkg_id: pkg_models.BinPkgId) -> snapshot_models.SnapshotBinPkg:
+        """
+        Get binary package data from snapshot.
+        """
+        if pkg_id in self.bin_pkg_map:
+            return self.bin_pkg_map[pkg_id]
+
+        if pkg_id in self.bootstrap_bin_pkg_map:
+            return self.bootstrap_bin_pkg_map[pkg_id]
+
+        raise RuntimeError(f"Package {pkg_id} does not exist in snapshot.")
 
     def validate_depends(self, pkg_id: pkg_models.SrcPkgId) -> bool:
         """

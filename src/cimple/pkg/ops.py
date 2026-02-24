@@ -10,7 +10,6 @@ import requests
 import cimple.constants
 import cimple.hash
 import cimple.logging
-import cimple.models
 import cimple.models.pkg
 import cimple.pkg.core
 import cimple.process
@@ -69,7 +68,11 @@ class PkgOps:
     ):
         cimple.logging.info("Installing %s", pkg_id.name)
 
-        pkg_data = cimple_snapshot.bin_pkg_map[pkg_id]
+        if cimple.models.pkg.is_bootstrap_pkg(pkg_id):
+            pkg_data = cimple_snapshot.bootstrap_bin_pkg_map.get(pkg_id)
+        else:
+            pkg_data = cimple_snapshot.bin_pkg_map.get(pkg_id)
+
         if pkg_data is None:
             raise RuntimeError(
                 f"Requested package {pkg_id} not found in snapshot {cimple_snapshot.name}."
@@ -89,6 +92,7 @@ class PkgOps:
         pi_path: pathlib.Path,
         cimple_snapshot: snapshot_core.CimpleSnapshot,
         build_options: PackageBuildOptions,
+        bootstrap: bool = False,
     ) -> dict[str, pathlib.Path]:
         # Prepare chroot image
         cimple.logging.info("Preparing image")
@@ -130,8 +134,15 @@ class PkgOps:
         # Install dependencies
         cimple.logging.info("Installing dependencies")
         deps_dir = cimple.constants.cimple_deps_dir / pkg_full_name
+
+        deps = self.resolve_dependencies(
+            pkg_models.SrcPkgId(config.name),
+            config.version,
+            pi_path=pi_path,
+            is_bootstrap=bootstrap,
+        )
         cimple.util.clear_path(deps_dir)
-        for dep in config.pkg.build_depends:
+        for dep in deps.build_depends[config.id]:
             self.install_package_and_deps(deps_dir, dep, cimple_snapshot)
 
         # Prepare build and output directories
@@ -268,8 +279,9 @@ class PkgOps:
         pi_path: pathlib.Path,
         cimple_snapshot: snapshot_core.CimpleSnapshot,
         build_options: PackageBuildOptions,
+        bootstrap: bool = False,
     ) -> dict[str, pathlib.Path]:
-        package_version = cimple_snapshot.src_pkg_map[package_id].version
+        package_version = cimple_snapshot.get_src_pkg(package_id).version
         config = pkg_config_models.load_pkg_config(pi_path, package_id, package_version)
 
         match config.root.pkg_type:
@@ -279,8 +291,10 @@ class PkgOps:
                     cimple_snapshot=cimple_snapshot,
                     pi_path=pi_path,
                     build_options=build_options,
+                    bootstrap=bootstrap,
                 )
             case "cygwin":
+                assert not bootstrap, "Bootstrap packages cannot be of type cygwin"
                 return self._build_cygwin_pkg(
                     typing.cast("pkg_config_models.PkgConfigCygwin", config.root),
                 )

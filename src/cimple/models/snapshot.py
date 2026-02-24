@@ -48,7 +48,7 @@ class SnapshotBinPkg(pydantic.BaseModel):
 
     @property
     def tarball_name(self) -> str:
-        return f"{self.name}-{self.sha256}.tar.{self.compression_method}"
+        return f"{self.name.replace(':', '-')}-{self.sha256}.tar.{self.compression_method}"
 
 
 class SnapshotPkg(pydantic.RootModel):

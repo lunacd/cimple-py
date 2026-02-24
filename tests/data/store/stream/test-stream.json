@@ -1,0 +1,5 @@
+{
+  "schema_version": "0",
+  "name": "test-stream",
+  "latest_snapshot": "test-snapshot"
+}
