@@ -341,18 +341,6 @@ class CimpleSnapshot:
 
         raise RuntimeError(f"Package {pkg_id} does not exist in snapshot.")
 
-    def get_bin_pkg(self, pkg_id: pkg_models.BinPkgId) -> snapshot_models.SnapshotBinPkg:
-        """
-        Get binary package data from snapshot.
-        """
-        if pkg_id in self.bin_pkg_map:
-            return self.bin_pkg_map[pkg_id]
-
-        if pkg_id in self.bootstrap_bin_pkg_map:
-            return self.bootstrap_bin_pkg_map[pkg_id]
-
-        raise RuntimeError(f"Package {pkg_id} does not exist in snapshot.")
-
     def validate_depends(self, pkg_id: pkg_models.SrcPkgId) -> bool:
         """
         Validate that all build and runtime dependencies of a source package are satisfied.
