@@ -19,4 +19,8 @@ version = "1.0"
 
 [[bootstrap_pkgs]]
 name = "bootstrap1"
-version = "1.0"
+version = "1.0.0-1"
+
+[[bootstrap_pkgs]]
+name = "bootstrap2"
+version = "1.0.0-1"

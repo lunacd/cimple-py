@@ -1,7 +1,6 @@
 # pyright: reportUnknownMemberType=false
 
 import importlib.resources
-import json
 import pathlib
 import typing
 
@@ -10,7 +9,6 @@ import pytest
 import cimple.constants
 import cimple.models.stream
 from cimple.models import pkg as pkg_models
-from cimple.models import snapshot as snapshot_models
 from cimple.snapshot import core as snapshot_core
 
 if typing.TYPE_CHECKING:
@@ -19,118 +17,26 @@ if typing.TYPE_CHECKING:
 
 @pytest.fixture(name="basic_cimple_store")
 def basic_cimple_store_fixture(fs: pyfakefs.fake_filesystem.FakeFilesystem) -> None:
-    # Create snapshot
-    snapshot_data: dict[str, typing.Any] = {
-        "version": 0,
-        "name": "test_snapshot",
-        "pkgs": [
-            {
-                "name": "pkg1",
-                "version": "1.0",
-                "pkg_type": "src",
-                "build_depends": ["pkg2-bin"],
-                "binary_packages": ["pkg1-bin"],
-            },
-            {
-                "name": "pkg1-bin",
-                "sha256": "a4defb8341593d4deea245993aeb3ce54de060affb10cb9ae60ec3789dd3f241",
-                "pkg_type": "bin",
-                "compression_method": "xz",
-                "depends": [],
-            },
-            {
-                "name": "pkg2",
-                "version": "1.0",
-                "pkg_type": "src",
-                "build_depends": ["pkg4-bin"],
-                "binary_packages": ["pkg2-bin"],
-            },
-            {
-                "name": "pkg2-bin",
-                "sha256": "ba3a73d0ce858c0da55186acb6b30de036a283812b55e48966f43b5704611914",
-                "pkg_type": "bin",
-                "compression_method": "xz",
-                "depends": ["pkg3-bin"],
-            },
-            {
-                "name": "pkg3",
-                "version": "1.0",
-                "pkg_type": "src",
-                "build_depends": [],
-                "binary_packages": ["pkg3-bin"],
-            },
-            {
-                "name": "pkg3-bin",
-                "sha256": "870f2deea4a3981df6ed4cccd05df2bd3465a7556e952e812df0cf46240008ec",
-                "pkg_type": "bin",
-                "compression_method": "xz",
-                "depends": [],
-            },
-            {
-                "name": "pkg4",
-                "version": "1.0-1",
-                "pkg_type": "src",
-                "build_depends": [],
-                "binary_packages": ["pkg4-bin"],
-            },
-            {
-                "name": "pkg4-bin",
-                "sha256": "6f4817737b3650965c73f0264d10673527bfde1fb4cbcb3f4a0fa357ff5a1a56",
-                "pkg_type": "bin",
-                "compression_method": "xz",
-                "depends": [],
-            },
-        ],
-        "bootstrap_pkgs": [],
-        "ancestor": "root",
-        "changes": {"add": [], "remove": [], "update": []},
-        "bootstrap_changes": {"add": [], "remove": [], "update": []},
-    }
-    snapshot = snapshot_models.SnapshotModel.model_validate(snapshot_data)
-    _ = fs.create_file(
-        cimple.constants.cimple_snapshot_dir / "test-snapshot.json",
-        contents=json.dumps(snapshot_data),
-    )
-
-    # Create stream
-    stream_data: dict[str, typing.Any] = {
-        "schema_version": "0",
-        "name": "test-stream",
-        "latest_snapshot": "test-snapshot",
-    }
-    stream = cimple.models.stream.StreamData.model_validate(stream_data)
-    _ = fs.create_file(
-        cimple.constants.cimple_stream_dir / "test-stream.json",
-        contents=stream.model_dump_json(),
-    )
-
-    # Add binary packages
-    for pkg in snapshot.pkgs:
-        if pkg.root.pkg_type != "bin":
-            continue
-
-        pkg_tarball_name = f"{pkg.root.name}-{pkg.root.sha256}.tar.{pkg.root.compression_method}"
-        with importlib.resources.path("tests", f"data/pkg/{pkg_tarball_name}") as pkg_path:
-            _ = fs.add_real_file(
-                pkg_path,
-                read_only=False,
-                target_path=cimple.constants.cimple_pkg_dir / pkg_tarball_name,
-            )
-
-    # Add orig tarballs
-    with importlib.resources.path("tests", "data/orig") as orig_path:
-        _ = fs.add_real_directory(
-            orig_path,
-            target_path=cimple.constants.cimple_orig_dir,
-            read_only=True,
+    with importlib.resources.path("tests", "data/store") as store_path:
+        fs.add_real_directory(
+            store_path / "snapshot",
+            target_path=cimple.constants.cimple_snapshot_dir,
         )
-
-    # Add image tarballs
-    with importlib.resources.path("tests", "data/image") as image_path:
-        _ = fs.add_real_directory(
-            image_path,
+        fs.add_real_directory(
+            store_path / "stream",
+            target_path=cimple.constants.cimple_stream_dir,
+        )
+        fs.add_real_directory(
+            store_path / "orig",
+            target_path=cimple.constants.cimple_orig_dir,
+        )
+        fs.add_real_directory(
+            store_path / "pkg",
+            target_path=cimple.constants.cimple_pkg_dir,
+        )
+        fs.add_real_directory(
+            store_path / "image",
             target_path=cimple.constants.cimple_image_dir,
-            read_only=True,
         )
 
 

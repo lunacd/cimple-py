@@ -37,17 +37,21 @@ def test_build_graph():
     assert pkgs_to_build[0] in {
         pkg_models.SrcPkgId("pkg3"),
         pkg_models.SrcPkgId("pkg4"),
+        pkg_models.SrcPkgId("bootstrap:bootstrap1"),
     }
 
     # When: getting 2 packages to build
     pkgs_to_build = build_graph.get_pkgs_to_build(max_count=2)
 
     # Then: returns the remaining package that has no build dependencies
-    assert len(pkgs_to_build) == 1
-    assert pkgs_to_build[0] in {
-        pkg_models.SrcPkgId("pkg3"),
-        pkg_models.SrcPkgId("pkg4"),
-    }
+    assert len(pkgs_to_build) == 2
+    assert set(pkgs_to_build).issubset(
+        {
+            pkg_models.SrcPkgId("pkg3"),
+            pkg_models.SrcPkgId("pkg4"),
+            pkg_models.SrcPkgId("bootstrap:bootstrap1"),
+        }
+    )
 
     # When: marking pkg4 as built
     build_graph.mark_pkgs_built(pkg_models.SrcPkgId("pkg4"))
@@ -79,8 +83,19 @@ def test_build_graph():
     assert len(pkgs_to_build) == 1
     assert pkgs_to_build[0] == pkg_models.SrcPkgId("pkg1")
 
-    # When: marking pkg1 as built
+    # WHEN: marking bootstrap:bootstrap1 as built
+    build_graph.mark_pkgs_built(pkg_models.SrcPkgId("bootstrap:bootstrap1"))
+
+    # And WHEN: getting more packages to build
+    pkgs_to_build = build_graph.get_pkgs_to_build(max_count=10)
+
+    # THEN: returns bootstrap1
+    assert len(pkgs_to_build) == 1
+    assert pkgs_to_build[0] == pkg_models.SrcPkgId("bootstrap1")
+
+    # When: marking pkg1 and bootstrap1 as built
     build_graph.mark_pkgs_built(pkg_models.SrcPkgId("pkg1"))
+    build_graph.mark_pkgs_built(pkg_models.SrcPkgId("bootstrap1"))
 
     # Then: the build graph is now empty
     assert build_graph.is_empty()

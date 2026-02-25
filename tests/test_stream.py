@@ -53,7 +53,7 @@ class TestResolveSnapshotChanges:
             )
         ]
         assert bootstrap_changes.add == [
-            cimple.models.snapshot.SnapshotChangeAdd(name="bootstrap1", version="1.0")
+            cimple.models.snapshot.SnapshotChangeAdd(name="bootstrap2", version="1.0.0-1")
         ]
         assert bootstrap_changes.remove == []
         assert bootstrap_changes.update == []

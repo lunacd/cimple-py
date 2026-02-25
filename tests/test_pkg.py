@@ -17,6 +17,65 @@ if typing.TYPE_CHECKING:
     import tests.conftest
 
 
+class TestPkgInstall:
+    @pytest.mark.usefixtures("basic_cimple_store")
+    def test_install_single_pkg(self):
+        # Given: a basic snapshot with binary packages
+        cimple_snapshot = snapshot_core.load_snapshot("test-snapshot")
+        pkg1 = pkg_models.BinPkgId("pkg1-bin")
+        uut = pkg_ops.PkgOps()
+
+        # When: installing a single package
+        uut.install_pkg(pathlib.Path("/target/"), pkg1, cimple_snapshot)
+
+        # Then: the installation result is successful and includes the expected binary packages
+        expected_file = pathlib.Path("/target/pkg-1.txt")
+        assert expected_file.exists(), (
+            f"Expected file {expected_file} should exist after installation"
+        )
+        assert expected_file.read_text().strip() == ""
+
+    @pytest.mark.usefixtures("basic_cimple_store")
+    def test_install_pkg_with_dependencies(self):
+        # Given: a basic snapshot with binary packages
+        cimple_snapshot = snapshot_core.load_snapshot("test-snapshot")
+        pkg2 = pkg_models.BinPkgId("pkg2-bin")
+        uut = pkg_ops.PkgOps()
+
+        # When: installing a package with dependencies
+        uut.install_package_and_deps(pathlib.Path("/target/"), pkg2, cimple_snapshot)
+
+        # Then: the installation result is successful and includes the expected binary packages
+        #       pkg2-bin depends on pkg3-bin, so both should be installed
+        expected_files = [
+            pathlib.Path("/target/pkg-2.txt"),
+            pathlib.Path("/target/pkg-3.txt"),
+        ]
+        expected_content = ["hahaha", "This is package 3"]
+        for expected_file, content in zip(expected_files, expected_content):
+            assert expected_file.exists(), (
+                f"Expected file {expected_file} should exist after installation"
+            )
+            assert expected_file.read_text().strip() == content
+
+    @pytest.mark.usefixtures("basic_cimple_store")
+    def test_install_bootstrap_pkg(self):
+        # Given: a basic snapshot with bootstrap packages
+        cimple_snapshot = snapshot_core.load_snapshot("test-snapshot")
+        pkg1 = pkg_models.BinPkgId("bootstrap:bootstrap1-bin")
+        uut = pkg_ops.PkgOps()
+
+        # When: installing a bootstrap package
+        uut.install_pkg(pathlib.Path("/target/"), pkg1, cimple_snapshot)
+
+        # Then: the installation result is successful and includes the expected bootstrap packages
+        expected_file = pathlib.Path("/target/bootstrap-bootstrap-1.txt")
+        assert expected_file.exists(), (
+            f"Expected file {expected_file} should exist after installation"
+        )
+        assert expected_file.read_text().strip() == ""
+
+
 class TestPkgOps:
     @pytest.mark.usefixtures("basic_cimple_store")
     def test_build_pkg_custom_with_cimple_pi(self, cimple_pi: pathlib.Path, mocker: MockerFixture):
@@ -121,6 +180,38 @@ class TestPkgOps:
             "make.exe not found in output"
         )
         assert output_paths["make"].name == "make-4.4.1-2"
+
+    @pytest.mark.usefixtures("basic_cimple_store")
+    def test_build_bootstrap_pkg(self, cimple_pi: pathlib.Path, mocker: MockerFixture):
+        # GIVEN: a real source package to build
+        package_id = pkg_models.SrcPkgId("bootstrap1")
+        cimple_snapshot = snapshot_core.load_snapshot("test-snapshot")
+        uut = pkg_ops.PkgOps()
+
+        # Mock the run_command function during bootstrap build
+        return_process = unittest.mock.Mock()
+        return_process.returncode = 0
+        run_command_mock = mocker.patch(
+            "cimple.pkg.ops.cimple.process.run_command", return_value=return_process
+        )
+
+        # WHEN: building a bootstrap package
+        result = uut.build_pkg(
+            package_id,
+            pi_path=cimple_pi,
+            cimple_snapshot=cimple_snapshot,
+            build_options=pkg_ops.PackageBuildOptions(parallel=2),
+            bootstrap=True,
+        )
+
+        # THEN: the expected output is returned
+        assert len(result) == 1
+        assert "bootstrap1-bin" in result
+        assert result["bootstrap1-bin"].is_dir()
+
+        # THEN: the run_command function is called
+        run_command_mock.assert_called_once()
+        assert run_command_mock.call_args[0][0] == ["abc", "abc"]
 
 
 class TestResolveDeps:

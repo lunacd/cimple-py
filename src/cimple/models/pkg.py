@@ -13,6 +13,7 @@ class SrcPkgId:
         self.name = name
         self.type = "src"
 
+    @typing.override
     def __hash__(self):
         return hash(f"src:{self.name}")
 
@@ -26,6 +27,7 @@ class BinPkgId:
         self.name = name
         self.type = "bin"
 
+    @typing.override
     def __hash__(self):
         return hash(f"bin:{self.name}")
 
@@ -80,3 +82,11 @@ def prev_src_id(pkg_id: SrcPkgId) -> SrcPkgId:
 
 def prev_bin_id(pkg_id: BinPkgId) -> BinPkgId:
     return BinPkgId(f"prev:{pkg_id.name}")
+
+
+def is_prev_pkg(pkg_id: PkgId) -> bool:
+    return pkg_id.name.startswith("prev:")
+
+
+def is_bootstrap_pkg(pkg_id: PkgId) -> bool:
+    return pkg_id.name.startswith("bootstrap:")

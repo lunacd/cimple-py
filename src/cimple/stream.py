@@ -54,7 +54,7 @@ def _resolve_pkg_changes(
     # Removals
     all_pkgs = {pkg.id for pkg in target_pkgs}
     for current_pkg in current_src_pkgs:
-        if current_pkg not in all_pkgs:
+        if current_pkg not in all_pkgs and not cimple.models.pkg.is_bootstrap_pkg(current_pkg):
             snapshot_changes.remove.append(current_pkg)
 
     return snapshot_changes
