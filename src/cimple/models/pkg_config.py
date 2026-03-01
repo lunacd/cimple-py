@@ -3,7 +3,7 @@ import typing
 
 import pydantic
 
-from cimple.models import pkg as models_pkg
+import cimple.models.pkg
 
 if typing.TYPE_CHECKING:
     import pathlib
@@ -18,11 +18,12 @@ class PkgConfigPkgSection(pydantic.BaseModel):
     supported_platforms: list[str]
 
     build_depends: typing.Annotated[
-        list[models_pkg.BinPkgId], pydantic.BeforeValidator(models_pkg.bin_pkg_id_list_validator)
+        list[cimple.models.pkg.BinPkgId],
+        pydantic.BeforeValidator(cimple.models.pkg.bin_pkg_id_list_validator),
     ]
 
     @pydantic.field_serializer("build_depends")
-    def serialize_build_depends(self, build_depends: list[models_pkg.BinPkgId]) -> list[str]:
+    def serialize_build_depends(self, build_depends: list[cimple.models.pkg.BinPkgId]) -> list[str]:
         return [dep.name for dep in build_depends]
 
 
@@ -65,13 +66,13 @@ class PkgConfigBinarySection(pydantic.BaseModel):
     """
 
     depends: typing.Annotated[
-        list[models_pkg.BinPkgId],
-        pydantic.BeforeValidator(models_pkg.bin_pkg_id_list_validator),
+        list[cimple.models.pkg.BinPkgId],
+        pydantic.BeforeValidator(cimple.models.pkg.bin_pkg_id_list_validator),
     ] = []
     output_dir: str | None = None
 
     @pydantic.field_serializer("depends")
-    def serialize_depends(self, depends: list[models_pkg.BinPkgId]) -> list[str]:
+    def serialize_depends(self, depends: list[cimple.models.pkg.BinPkgId]) -> list[str]:
         return [dep.name for dep in depends]
 
 
@@ -90,26 +91,28 @@ class PkgConfigCustom(pydantic.BaseModel):
     input: PkgConfigInputSection
     rules: PkgConfigRulesSection
     binaries: typing.Annotated[
-        dict[models_pkg.BinPkgId, PkgConfigBinarySection],
-        pydantic.BeforeValidator(lambda b: {models_pkg.BinPkgId(k): v for k, v in b.items()}),
+        dict[cimple.models.pkg.BinPkgId, PkgConfigBinarySection],
+        pydantic.BeforeValidator(
+            lambda b: {cimple.models.pkg.BinPkgId(k): v for k, v in b.items()}
+        ),
     ]
 
     @pydantic.field_serializer("binaries")
     def serialize_binaries(
-        self, binaries: dict[models_pkg.BinPkgId, PkgConfigBinarySection]
+        self, binaries: dict[cimple.models.pkg.BinPkgId, PkgConfigBinarySection]
     ) -> dict[str, typing.Any]:
         return {k.name: v for k, v in binaries.items()}
 
     @property
-    def id(self) -> models_pkg.SrcPkgId:
-        return models_pkg.SrcPkgId(self.name)
+    def id(self) -> cimple.models.pkg.SrcPkgId:
+        return cimple.models.pkg.SrcPkgId(self.name)
 
     @property
-    def binary_packages(self) -> list[models_pkg.BinPkgId]:
+    def binary_packages(self) -> list[cimple.models.pkg.BinPkgId]:
         return list(self.binaries.keys())
 
     @property
-    def build_depends(self) -> list[models_pkg.BinPkgId]:
+    def build_depends(self) -> list[cimple.models.pkg.BinPkgId]:
         return self.pkg.build_depends
 
 
@@ -124,17 +127,17 @@ class PkgConfigCygwin(pydantic.BaseModel):
     version: str
 
     @property
-    def id(self) -> models_pkg.SrcPkgId:
-        return models_pkg.SrcPkgId(self.name)
+    def id(self) -> cimple.models.pkg.SrcPkgId:
+        return cimple.models.pkg.SrcPkgId(self.name)
 
     @property
-    def binary_packages(self) -> list[models_pkg.BinPkgId]:
+    def binary_packages(self) -> list[cimple.models.pkg.BinPkgId]:
         # Cygwin integration pulls in Cygwin binary packages directly,
         # so it's impossible to have multiple binary packages per source
-        return [models_pkg.BinPkgId(self.name)]
+        return [cimple.models.pkg.BinPkgId(self.name)]
 
     @property
-    def build_depends(self) -> list[models_pkg.BinPkgId]:
+    def build_depends(self) -> list[cimple.models.pkg.BinPkgId]:
         return []
 
 
@@ -142,7 +145,11 @@ class PkgConfig(pydantic.RootModel):
     root: typing.Union[PkgConfigCustom, PkgConfigCygwin] = pydantic.Field(discriminator="pkg_type")  # noqa: UP007
 
 
-def load_pkg_config(pi_path: pathlib.Path, package: models_pkg.SrcPkgId, package_version: str):
+def load_pkg_config(
+    pi_path: pathlib.Path, package: cimple.models.pkg.SrcPkgId, package_version: str
+):
+    if cimple.models.pkg.is_bootstrap_pkg(package):
+        package = cimple.models.pkg.SrcPkgId(package.name.removeprefix("bootstrap:"))
     config_path = pi_path / "pkg" / package.name / package_version / "pkg.toml"
     with config_path.open("rb") as f:
         config_dict = tomllib.load(f)
