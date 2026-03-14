@@ -429,12 +429,16 @@ class CimpleSnapshot:
         bootstrap_changes: cimple.models.snapshot.SnapshotChanges,
         pkg_processor: cimple.pkg.ops.PkgOps,
         pkg_index_path: pathlib.Path,
-    ):
+    ) -> cimple.graph.BuildGraph:
         """
         Compute the build order for the packages to be added/updated.
         Also computes the new build dependency graph as part of the process.
+
+        Because the new updates are expected to built right after this, all sha256
+        fields are set to "placeholder" and will be filled in later.
         """
 
+        # Step 1: Apply changes to the graph
         # Changes to the graph is processed in the following order:
         # 1. Bootstrap and normal removal (this step might leave incomplete edges in the graph)
         # 2. Bootstrap addition
@@ -479,6 +483,43 @@ class CimpleSnapshot:
                 "Snapshot has broken edges after applying changes! Broken edges:"
                 f" {self.graph.broken_edges}"
             )
+
+        # Step 2: Compute the build graph
+        requirement_graph: cimple.graph.Graph[pkg_models.PkgId] = self.graph.reverse(copy=True)
+
+        pkgs_to_build: set[cimple.models.pkg.PkgId] = set()
+
+        # Because additions and removals are split between changes and bootstrap_changes,
+        # "newly added" packages can have dependents in the unchanged build graph. For example,
+        # package A can be removed as a normal package, but its bootstrap version can be newly
+        # added. Therefore, we need to traverse the dependents of all added and updated packages in
+        # both sets.
+        all_affected_pkgs = [
+            *[add.id for add in pkg_changes.add],
+            *[update.id for update in pkg_changes.update],
+            *[add.id for add in bootstrap_changes.add],
+            *[update.id for update in bootstrap_changes.update],
+            *[cimple.models.pkg.bootstrap_src_id(add.id) for add in bootstrap_changes.add],
+            *[cimple.models.pkg.bootstrap_src_id(update.id) for update in bootstrap_changes.update],
+        ]
+
+        # All updated packages and their dependents need to be built
+        for affected_pkg in all_affected_pkgs:
+            pkgs_to_build.add(affected_pkg)
+            pkgs_to_build.update(requirement_graph.descendants(affected_pkg))
+
+        # Set the sha256 fields of the packages to be built to "placeholder"
+        for pkg_id in pkgs_to_build:
+            if pkg_id.type != "bin":
+                continue
+
+            if pkg_id in self.bootstrap_bin_pkg_map:
+                self.bootstrap_bin_pkg_map[pkg_id].sha256 = "placeholder"
+            else:
+                self.bin_pkg_map[pkg_id].sha256 = "placeholder"
+
+        # Get subgraph of packages to build
+        return cimple.graph.BuildGraph(requirement_graph.subgraph(pkgs_to_build))
 
     def compare_pkgs_with(self, rhs: CimpleSnapshot) -> None | pkg_models.PkgId:
         """

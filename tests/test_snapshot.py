@@ -743,36 +743,52 @@ class TestSnapshotOps:
 
 class TestComputeBuildGraph:
     @pytest.mark.usefixtures("basic_cimple_store")
-    def test_compute_build_graph_empty(self):
+    def test_compute_build_graph_empty(
+        self,
+        cimple_pi: pathlib.Path,
+    ):
         # GIVEN: a snapshot and no changes
+        pkg_processor = cimple.pkg.ops.PkgOps()
         snapshot = cimple.snapshot.core.load_snapshot("test-snapshot")
         changes = cimple.models.snapshot.SnapshotChanges.model_construct(
             add=[], remove=[], update=[]
         )
 
         # WHEN: computing the build graph
-        build_graph = cimple.snapshot.ops.compute_build_graph(
-            snapshot, pkg_changes=changes, bootstrap_changes=no_changes
+        build_graph = snapshot.update_with_changes(
+            pkg_changes=changes,
+            bootstrap_changes=no_changes,
+            pkg_processor=pkg_processor,
+            pkg_index_path=cimple_pi,
         )
 
         # THEN: the build graph is empty
         assert build_graph.graph.number_of_nodes() == 0
 
     @pytest.mark.usefixtures("basic_cimple_store")
-    def test_compute_build_graph(self):
+    def test_compute_build_graph(self, cimple_pi: pathlib.Path):
         # GIVEN: a snapshot and changes
+        pkg_processor = cimple.pkg.ops.PkgOps()
         snapshot = cimple.snapshot.core.load_snapshot("test-snapshot")
-        pkg_to_add = cimple.models.snapshot.SnapshotChangeAdd(name="pkg1", version="1.0")
-        pkg_to_update = cimple.models.snapshot.SnapshotChangeUpdate.model_construct(
-            name="pkg4", from_version="0.1", to_version="1.0"
-        )
+        pkg_to_add = cimple.models.snapshot.SnapshotChangeAdd(name="pkg5", version="1.0-1")
+        pkgs_to_update = [
+            cimple.models.snapshot.SnapshotChangeUpdate.model_construct(
+                name="pkg1", from_version="1.0-1", to_version="3.0-1"
+            ),
+            cimple.models.snapshot.SnapshotChangeUpdate.model_construct(
+                name="pkg2", from_version="1.0-1", to_version="2.0-1"
+            ),
+        ]
         changes = cimple.models.snapshot.SnapshotChanges.model_construct(
-            add=[pkg_to_add], remove=[cimple.models.pkg.SrcPkgId("pkg5")], update=[pkg_to_update]
+            add=[pkg_to_add], remove=[cimple.models.pkg.SrcPkgId("pkg4")], update=pkgs_to_update
         )
 
         # WHEN: computing the build graph
-        build_graph = cimple.snapshot.ops.compute_build_graph(
-            snapshot, pkg_changes=changes, bootstrap_changes=no_changes
+        build_graph = snapshot.update_with_changes(
+            pkg_changes=changes,
+            bootstrap_changes=no_changes,
+            pkg_processor=pkg_processor,
+            pkg_index_path=cimple_pi,
         )
 
         # THEN: the build graph contains the new package
@@ -783,8 +799,16 @@ class TestComputeBuildGraph:
             (cimple.models.pkg.SrcPkgId("pkg1"), cimple.models.pkg.BinPkgId("pkg1-bin")),
             (cimple.models.pkg.BinPkgId("pkg2-bin"), cimple.models.pkg.SrcPkgId("pkg1")),
             (cimple.models.pkg.SrcPkgId("pkg2"), cimple.models.pkg.BinPkgId("pkg2-bin")),
-            (cimple.models.pkg.SrcPkgId("pkg4"), cimple.models.pkg.BinPkgId("pkg4-bin")),
-            (cimple.models.pkg.BinPkgId("pkg4-bin"), cimple.models.pkg.SrcPkgId("pkg2")),
+            (cimple.models.pkg.SrcPkgId("pkg5"), cimple.models.pkg.BinPkgId("pkg5-bin")),
+            (cimple.models.pkg.BinPkgId("pkg2-bin"), cimple.models.pkg.SrcPkgId("pkg5")),
         }
         actual_edges = set(build_graph.graph.edges())
         assert actual_edges == expected_edges
+
+        # THEN: all the packages to be rebuilt have their sha cleared
+        for pkg_id in [
+            cimple.models.pkg.BinPkgId("pkg1-bin"),
+            cimple.models.pkg.BinPkgId("pkg2-bin"),
+            cimple.models.pkg.BinPkgId("pkg5-bin"),
+        ]:
+            assert snapshot.bin_pkg_map[pkg_id].sha256 == "placeholder"

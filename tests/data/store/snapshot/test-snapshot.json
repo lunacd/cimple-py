@@ -4,7 +4,7 @@
   "pkgs": [
     {
       "name": "pkg1",
-      "version": "1.0",
+      "version": "1.0-1",
       "pkg_type": "src",
       "build_depends": ["pkg2-bin"],
       "binary_packages": ["pkg1-bin"]
@@ -18,7 +18,7 @@
     },
     {
       "name": "pkg2",
-      "version": "1.0",
+      "version": "1.0-1",
       "pkg_type": "src",
       "build_depends": ["pkg4-bin"],
       "binary_packages": ["pkg2-bin"]
@@ -32,7 +32,7 @@
     },
     {
       "name": "pkg3",
-      "version": "1.0",
+      "version": "1.0-1",
       "pkg_type": "src",
       "build_depends": [],
       "binary_packages": ["pkg3-bin"]
