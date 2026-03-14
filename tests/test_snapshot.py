@@ -6,6 +6,7 @@ import pytest
 
 import cimple.constants
 import cimple.models.pkg
+import cimple.models.pkg_config
 import cimple.models.snapshot
 import cimple.pkg.ops
 import cimple.snapshot.core
@@ -44,6 +45,34 @@ class TestSnapshotCore:
         bin_snapshot_pkg = snapshot.bin_pkg_map[bin_pkg_id]
         assert bin_snapshot_pkg.name == "cmake"
         assert source_snapshot_pkg.binary_packages == [bin_pkg_id]
+
+    def test_add_pkg_helper(self, helpers: tests.conftest.Helpers, cimple_pi: pathlib.Path):
+        # GIVEN: a snapshot with a source and binary package
+        snapshot = helpers.mock_cimple_snapshot([])
+
+        # WHEN: adding a package
+        pkg_id = cimple.models.pkg.SrcPkgId("pkg4")
+        pkg_version = "1.0-1"
+        pkg_config = cimple.models.pkg_config.load_pkg_config(cimple_pi, pkg_id, pkg_version)
+        dep_data = cimple.pkg.ops.PkgOps().resolve_dependencies(
+            pkg_id, pkg_version, pi_path=cimple_pi
+        )
+        snapshot.add_pkg(pkg_config, dependency_data=dep_data)
+
+        # THEN: the source package is added to the snapshot
+        assert pkg_id in snapshot.src_pkg_map
+        source_snapshot_pkg = snapshot.src_pkg_map[pkg_id]
+        assert source_snapshot_pkg.name == "pkg4"
+
+        # THEN: the binary package is added to the snapshot
+        bin_pkg_id = cimple.models.pkg.BinPkgId("pkg4-bin")
+        assert bin_pkg_id in snapshot.bin_pkg_map
+        bin_snapshot_pkg = snapshot.bin_pkg_map[bin_pkg_id]
+        assert bin_snapshot_pkg.name == "pkg4-bin"
+        assert source_snapshot_pkg.binary_packages == [bin_pkg_id]
+
+        # THEN: there is an edge between the source package and binary package
+        assert snapshot.graph.has_edge(bin_pkg_id, pkg_id)
 
     @pytest.mark.usefixtures("fs")
     def test_snapshot_dump(self, helpers: tests.conftest.Helpers):
