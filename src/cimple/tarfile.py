@@ -20,12 +20,18 @@ def writable_extract_filter(tarinfo: tarfile.TarInfo, dest_path: str) -> tarfile
     return tarfile.tar_filter(tarinfo, str(dest_path))
 
 
+def _validate_tarfile_type(
+    tarfile_type: str,
+) -> typing.TypeGuard[typing.Literal["gz", "xz", "zst"]]:
+    return tarfile_type in ("gz", "xz", "zst")
+
+
 def extract(tar_path: pathlib.Path, dest_path: pathlib.Path) -> None:
     """
     Extracts a tarball to a destination path, making files writable.
     """
     tarfile_type = tar_path.suffix[1:]
-    if tarfile_type not in ("gz", "xz", "zst"):
+    if not _validate_tarfile_type(tarfile_type):
         raise ValueError(f"Unsupported tarfile type: {tarfile_type}")
 
     tar_mode = get_tarfile_mode("r", tarfile_type)

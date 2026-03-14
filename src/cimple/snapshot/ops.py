@@ -21,45 +21,6 @@ class VersionedSourcePackage(pydantic.BaseModel):
     version: str
 
 
-def compute_build_graph(
-    snapshot: cimple.snapshot.core.CimpleSnapshot,
-    pkg_changes: cimple.models.snapshot.SnapshotChanges,
-    bootstrap_changes: cimple.models.snapshot.SnapshotChanges,
-) -> cimple.graph.BuildGraph:
-    """
-    Compute the build order for the packages in the snapshot.
-
-    The given snapshot needs to already have the changes applied to it.
-
-    The returned graph is a requirement graph, where an edge from A -> B means A requires B to be
-    available first. This is essentially the reverse of the dependency graph.
-    """
-    requirement_graph: cimple.graph.Graph[pkg_models.PkgId] = snapshot.graph.reverse(copy=True)
-
-    pkgs_to_build = set()
-
-    # Because additions and removals are split between changes and bootstrap_changes,
-    # "newly added" packages can have dependents in the unchanged build graph. For example,
-    # package A can be removed as a normal package, but its bootstrap version can be newly added.
-    # Therefore, we need to traverse the dependents of all added and updated packages in both sets.
-    all_affected_pkgs = [
-        *[add.id for add in pkg_changes.add],
-        *[update.id for update in pkg_changes.update],
-        *[add.id for add in bootstrap_changes.add],
-        *[update.id for update in bootstrap_changes.update],
-        *[cimple.models.pkg.bootstrap_src_id(add.id) for add in bootstrap_changes.add],
-        *[cimple.models.pkg.bootstrap_src_id(update.id) for update in bootstrap_changes.update],
-    ]
-
-    # All updated packages and their dependents need to be built
-    for affected_pkg in all_affected_pkgs:
-        pkgs_to_build.add(affected_pkg)
-        pkgs_to_build.update(requirement_graph.descendants(affected_pkg))
-
-    # Get subgraph of packages to build
-    return cimple.graph.BuildGraph(requirement_graph.subgraph(pkgs_to_build))
-
-
 def execute_build_graph(
     build_graph: cimple.graph.BuildGraph,
     *,
@@ -127,15 +88,12 @@ def process_changes(
     pkg_processor = pkg_ops.PkgOps()
 
     # Construct new snapshot graph
-    origin_snapshot.update_with_changes(
+    build_graph = origin_snapshot.update_with_changes(
         pkg_changes=pkg_changes,
         bootstrap_changes=bootstrap_changes,
         pkg_processor=pkg_processor,
         pkg_index_path=pkg_index_path,
     )
-
-    # Compute build graph
-    build_graph = compute_build_graph(origin_snapshot, pkg_changes, bootstrap_changes)
 
     # Execute build graph
     execute_build_graph(

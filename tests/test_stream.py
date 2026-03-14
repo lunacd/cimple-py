@@ -44,12 +44,12 @@ class TestResolveSnapshotChanges:
 
         # Then: the changes should be correctly identified
         assert pkg_changes.add == [
-            cimple.models.snapshot.SnapshotChangeAdd(name="pkg5", version="1.0"),
+            cimple.models.snapshot.SnapshotChangeAdd(name="pkg5", version="1.0-1"),
         ]
         assert pkg_changes.remove == [cimple.models.pkg.SrcPkgId("pkg1")]
         assert pkg_changes.update == [
             cimple.models.snapshot.SnapshotChangeUpdate.model_construct(
-                name="pkg2", from_version="1.0", to_version="2.0"
+                name="pkg2", from_version="1.0-1", to_version="2.0-1"
             )
         ]
         assert bootstrap_changes.add == [

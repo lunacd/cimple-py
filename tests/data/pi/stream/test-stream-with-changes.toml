@@ -2,11 +2,11 @@ schema_version = "0"
 
 [[pkgs]]
 name = "pkg2"
-version = "2.0"
+version = "2.0-1"
 
 [[pkgs]]
 name = "pkg3"
-version = "1.0"
+version = "1.0-1"
 
 
 [[pkgs]]
@@ -15,7 +15,7 @@ version = "1.0-1"
 
 [[pkgs]]
 name = "pkg5"
-version = "1.0"
+version = "1.0-1"
 
 [[bootstrap_pkgs]]
 name = "bootstrap1"

@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest", "pytest-cov", "pytest-mock", "ruff", "pyright", "pyfakefs"]
+dev = ["pytest", "pytest-cov", "pytest-mock", "ruff", "pyright", "pyfakefs", "ty"]
 
 [project.scripts]
 cimple = "cimple.main:main"
