@@ -283,6 +283,7 @@ class CimpleSnapshot:
                 depends=dependency_data.depends[binary_package],
                 bootstrap=bootstrap,
             )
+            self.graph.add_edge(binary_package, pkg_config.root.id)
             if bootstrap:
                 bootstrap_bin_id = cimple.models.pkg.bootstrap_bin_id(binary_package)
                 if bootstrap_bin_id in self.bin_pkg_map:
@@ -295,6 +296,9 @@ class CimpleSnapshot:
                     pkg_sha256="placeholder",  # SHA will be filled in separately
                     depends=dependency_data.depends[bootstrap_bin_id],
                     bootstrap=bootstrap,
+                )
+                self.graph.add_edge(
+                    bootstrap_bin_id, cimple.models.pkg.bootstrap_src_id(pkg_config.root.id)
                 )
 
     def remove_pkg(self, pkg_id: pkg_models.SrcPkgId) -> None:
