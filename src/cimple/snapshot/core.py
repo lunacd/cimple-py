@@ -438,6 +438,9 @@ class CimpleSnapshot:
         fields are set to "placeholder" and will be filled in later.
         """
 
+        if self.name == "unfinalized":
+            raise RuntimeError("Cannot update snapshot with changes: snapshot is not finalized.")
+
         # Step 1: Apply changes to the graph
         # Changes to the graph is processed in the following order:
         # 1. Bootstrap and normal removal (this step might leave incomplete edges in the graph)
@@ -517,6 +520,11 @@ class CimpleSnapshot:
                 self.bootstrap_bin_pkg_map[pkg_id].sha256 = "placeholder"
             else:
                 self.bin_pkg_map[pkg_id].sha256 = "placeholder"
+
+        # Point ancenstor to the current snapshot
+        # Set name to "unfinalized" as the new snapshot is not finalized yet
+        self.ancestor = self.name
+        self.name = "unfinalized"
 
         # Get subgraph of packages to build
         return cimple.graph.BuildGraph(requirement_graph.subgraph(pkgs_to_build))
