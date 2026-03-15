@@ -68,16 +68,18 @@ class PkgOps:
     ):
         cimple.logging.info("Installing %s", pkg_id.name)
 
-        if cimple.models.pkg.is_bootstrap_pkg(pkg_id):
-            pkg_data = cimple_snapshot.bootstrap_bin_pkg_map.get(pkg_id)
-        else:
-            pkg_data = cimple_snapshot.bin_pkg_map.get(pkg_id)
+        pkg_data = cimple_snapshot.bootstrap_bin_pkg_map.get(
+            pkg_id, cimple_snapshot.bin_pkg_map.get(pkg_id)
+        )
 
         if pkg_data is None:
             raise RuntimeError(
                 f"Requested package {pkg_id} not found in snapshot {cimple_snapshot.name}."
             )
         assert snapshot_models.snapshot_pkg_is_bin(pkg_data)
+
+        if pkg_data.sha256 == "placeholder":
+            raise RuntimeError(f"Package {pkg_id.name} is not ready yet and cannot be installed.")
 
         with tarfile.open(
             cimple.constants.cimple_pkg_dir / pkg_data.tarball_name,
