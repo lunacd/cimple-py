@@ -75,6 +75,22 @@ class TestPkgInstall:
         )
         assert expected_file.read_text().strip() == ""
 
+    @pytest.mark.usefixtures("basic_cimple_store")
+    def test_install_placeholder_pkg(self):
+        # Given: a basic snapshot with a package's sha missing
+        cimple_snapshot = snapshot_core.load_snapshot("test-snapshot")
+        pkg = pkg_models.BinPkgId("bootstrap:bootstrap1-bin")
+        uut = pkg_ops.PkgOps()
+        cimple_snapshot.bootstrap_bin_pkg_map[pkg].sha256 = "placeholder"
+
+        # When: installing a placeholder package
+        # Then: a RuntimeError is raised indicating that the package cannot be installed
+        with pytest.raises(
+            RuntimeError,
+            match="Package bootstrap:bootstrap1-bin is not ready yet and cannot be installed.",
+        ):
+            uut.install_pkg(pathlib.Path("/target/"), pkg, cimple_snapshot)
+
 
 class TestPkgOps:
     @pytest.mark.usefixtures("basic_cimple_store")
