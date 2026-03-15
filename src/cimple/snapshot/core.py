@@ -521,14 +521,11 @@ class CimpleSnapshot:
         # Get subgraph of packages to build
         return cimple.graph.BuildGraph(requirement_graph.subgraph(pkgs_to_build))
 
-    def is_in_bootstrap(self, pkg_id: pkg_models.PkgId) -> bool:
+    def is_in_bootstrap(self, pkg_id: pkg_models.SrcPkgId) -> bool:
         """
         Check if a package is part of the bootstrap set.
         """
-        if pkg_id.type == "src":
-            return pkg_id in self.bootstrap_src_pkg_map
-
-        return pkg_id in self.bootstrap_bin_pkg_map
+        return pkg_id in self.bootstrap_src_pkg_map
 
     def compare_pkgs_with(self, rhs: CimpleSnapshot) -> None | pkg_models.PkgId:
         """
