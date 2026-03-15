@@ -89,7 +89,7 @@
       "depends": []
     }
   ],
-  "ancestor": "root",
+  "ancestor": "test-ancestor",
   "changes": { "add": [], "remove": [], "update": [] },
   "bootstrap_changes": { "add": [], "remove": [], "update": [] }
 }

@@ -13,7 +13,7 @@ import cimple.logging
 import cimple.models.pkg
 import cimple.pkg.core
 import cimple.process
-import cimple.snapshot.core as snapshot_core
+import cimple.snapshot.core
 import cimple.str_interpolation
 import cimple.tarfile
 import cimple.util
@@ -43,7 +43,7 @@ class PkgOps:
         self,
         target_path: pathlib.Path,
         pkg_id: pkg_models.BinPkgId,
-        cimple_snapshot: snapshot_core.CimpleSnapshot,
+        cimple_snapshot: cimple.snapshot.core.CimpleSnapshot,
     ):
         """
         Install a package and its transitive dependencies into the target path.
@@ -64,9 +64,21 @@ class PkgOps:
     def install_pkg(
         target_path: pathlib.Path,
         pkg_id: pkg_models.BinPkgId,
-        cimple_snapshot: snapshot_core.CimpleSnapshot,
+        cimple_snapshot: cimple.snapshot.core.CimpleSnapshot,
     ):
         cimple.logging.info("Installing %s", pkg_id.name)
+
+        # Load and install from previous snapshot for `prev:` packages
+        if cimple.models.pkg.is_prev_pkg(pkg_id):
+            prev_snapshot_name = cimple_snapshot.ancestor
+            assert prev_snapshot_name is not None, (
+                "Cannot install package from previous snapshot without an ancestor snapshot"
+            )
+            prev_snapshot = cimple.snapshot.core.load_snapshot(prev_snapshot_name)
+            PkgOps.install_pkg(
+                target_path, cimple.models.pkg.BinPkgId(pkg_id.name[len("prev:") :]), prev_snapshot
+            )
+            return
 
         pkg_data = cimple_snapshot.bootstrap_bin_pkg_map.get(
             pkg_id, cimple_snapshot.bin_pkg_map.get(pkg_id)
@@ -93,7 +105,7 @@ class PkgOps:
         config: pkg_config_models.PkgConfigCustom,
         *,
         pi_path: pathlib.Path,
-        cimple_snapshot: snapshot_core.CimpleSnapshot,
+        cimple_snapshot: cimple.snapshot.core.CimpleSnapshot,
         build_options: PackageBuildOptions,
         bootstrap: bool = False,
     ) -> dict[str, pathlib.Path]:
@@ -280,7 +292,7 @@ class PkgOps:
         package_id: pkg_models.SrcPkgId,
         *,
         pi_path: pathlib.Path,
-        cimple_snapshot: snapshot_core.CimpleSnapshot,
+        cimple_snapshot: cimple.snapshot.core.CimpleSnapshot,
         build_options: PackageBuildOptions,
         bootstrap: bool = False,
     ) -> dict[str, pathlib.Path]:

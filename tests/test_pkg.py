@@ -92,6 +92,23 @@ class TestPkgInstall:
             uut.install_pkg(pathlib.Path("/target/"), pkg, cimple_snapshot)
 
 
+    @pytest.mark.usefixtures("basic_cimple_store")
+    def test_install_prev_package(self, mocker: MockerFixture):
+        # GIVEN: a snapshot
+        cimple_snapshot = snapshot_core.load_snapshot("test-snapshot")
+        pkg = pkg_models.BinPkgId("prev:bootstrap1-bin")
+        mock_tarfile_open = mocker.patch("cimple.pkg.ops.tarfile.open")
+
+        # WHEN: installing a prev package
+        uut = pkg_ops.PkgOps()
+        uut.install_pkg(pathlib.Path("/target/"), pkg, cimple_snapshot)
+
+        # THEN: the tarball with sha256 from the ancestor snapshot should be extracted
+        mock_tarfile_open.assert_called_once()
+        opened_path = mock_tarfile_open.call_args[0][0]
+        assert "sha256-in-ancestor" in str(opened_path)
+
+
 class TestPkgOps:
     @pytest.mark.usefixtures("basic_cimple_store")
     def test_build_pkg_custom_with_cimple_pi(self, cimple_pi: pathlib.Path, mocker: MockerFixture):

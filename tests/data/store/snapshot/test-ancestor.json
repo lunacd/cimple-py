@@ -1,0 +1,24 @@
+{
+  "version": 0,
+  "name": "test-snapshot",
+  "pkgs": [
+    {
+      "name": "bootstrap1",
+      "version": "1.0.0-1",
+      "pkg_type": "src",
+      "build_depends": [],
+      "binary_packages": ["bootstrap1-bin"]
+    },
+    {
+      "name": "bootstrap1-bin",
+      "sha256": "sha256-in-ancestor",
+      "pkg_type": "bin",
+      "compression_method": "xz",
+      "depends": []
+    }
+  ],
+  "bootstrap_pkgs": [],
+  "ancestor": "root",
+  "changes": { "add": [], "remove": [], "update": [] },
+  "bootstrap_changes": { "add": [], "remove": [], "update": [] }
+}
