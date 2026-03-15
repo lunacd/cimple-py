@@ -289,6 +289,24 @@ class TestSnapshotUpdate:
     """
 
     @pytest.mark.usefixtures("basic_cimple_store")
+    def test_updating_unfinalized_snapshot(self, cimple_pi: pathlib.Path):
+        # GIVEN: an unfinalized snapshot
+        snapshot = cimple.snapshot.core.load_snapshot("test-snapshot")
+        snapshot.name = "unfinalized"
+
+        # WHEN: updating the snapshot with changes
+        pkg_processor = cimple.pkg.ops.PkgOps()
+        with pytest.raises(
+            RuntimeError, match="Cannot update snapshot with changes: snapshot is not finalized."
+        ):
+            snapshot.update_with_changes(
+                pkg_changes=no_changes,
+                bootstrap_changes=no_changes,
+                pkg_processor=pkg_processor,
+                pkg_index_path=cimple_pi,
+            )
+
+    @pytest.mark.usefixtures("basic_cimple_store")
     def test_no_update(self, cimple_pi: pathlib.Path):
         # GIVEN: a snapshot
         snapshot = cimple.snapshot.core.load_snapshot("test-snapshot")
@@ -308,6 +326,10 @@ class TestSnapshotUpdate:
         assert snapshot.bin_pkg_map == original_snapshot.bin_pkg_map
         assert snapshot.graph.nodes() == original_snapshot.graph.nodes()
         assert snapshot.graph.edges() == original_snapshot.graph.edges()
+
+        # THEN: snapshot ancestor is updated to the current snapshot name
+        assert snapshot.ancestor == "test-snapshot"
+        assert snapshot.name == "unfinalized"
 
     @pytest.mark.usefixtures("basic_cimple_store")
     def test_remove_pkg(self, cimple_pi: pathlib.Path):

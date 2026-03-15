@@ -1,6 +1,6 @@
 {
   "version": 0,
-  "name": "test_snapshot",
+  "name": "test-snapshot",
   "pkgs": [
     {
       "name": "pkg1",
