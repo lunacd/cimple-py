@@ -91,7 +91,6 @@ class TestPkgInstall:
         ):
             uut.install_pkg(pathlib.Path("/target/"), pkg, cimple_snapshot)
 
-
     @pytest.mark.usefixtures("basic_cimple_store")
     def test_install_prev_package(self, mocker: MockerFixture):
         # GIVEN: a snapshot
