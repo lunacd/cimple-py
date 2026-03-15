@@ -89,6 +89,7 @@ class PkgOps:
 
     def _build_custom_pkg(
         self,
+        package_id: pkg_models.SrcPkgId,
         config: pkg_config_models.PkgConfigCustom,
         *,
         pi_path: pathlib.Path,
@@ -144,7 +145,7 @@ class PkgOps:
             is_bootstrap=bootstrap,
         )
         cimple.util.clear_path(deps_dir)
-        for dep in deps.build_depends[config.id]:
+        for dep in deps.build_depends[package_id]:
             self.install_package_and_deps(deps_dir, dep, cimple_snapshot)
 
         # Prepare build and output directories
@@ -286,9 +287,15 @@ class PkgOps:
         package_version = cimple_snapshot.get_src_pkg(package_id).version
         config = pkg_config_models.load_pkg_config(pi_path, package_id, package_version)
 
+        cimple.logging.info("Building package %s-%s", package_id.name, package_version)
+
         match config.root.pkg_type:
             case "custom":
+                # NOTE: package ID has to be provided separately because bootstrap packages have
+                # different package IDs (`bootstrap:` variant + normal variant), but they share the
+                # same config file
                 return self._build_custom_pkg(
+                    package_id,
                     typing.cast("pkg_config_models.PkgConfigCustom", config.root),
                     cimple_snapshot=cimple_snapshot,
                     pi_path=pi_path,

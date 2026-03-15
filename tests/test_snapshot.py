@@ -5,6 +5,7 @@ import typing
 import pytest
 
 import cimple.constants
+import cimple.graph
 import cimple.models.pkg
 import cimple.models.pkg_config
 import cimple.models.snapshot
@@ -812,3 +813,68 @@ class TestComputeBuildGraph:
             cimple.models.pkg.BinPkgId("pkg5-bin"),
         ]:
             assert snapshot.bin_pkg_map[pkg_id].sha256 == "placeholder"
+
+
+class TestExecuteBuildGraph:
+    def test_execute_build_graph(
+        self,
+        cimple_pi: pathlib.Path,
+        helpers: tests.conftest.Helpers,
+        mocker: MockerFixture,
+    ):
+        # GIVEN: a snapshot and a build graph with one normal package and one bootstrap to build
+        snapshot = helpers.mock_cimple_snapshot([])
+        pkg_processor = cimple.pkg.ops.PkgOps()
+
+        # Add normal package
+        pkg_id = cimple.models.pkg.SrcPkgId("custom")
+        bin_pkg_id = cimple.models.pkg.BinPkgId("custom")
+        snapshot.add_src_pkg(pkg_id, "0.0.1-1", [bin_pkg_id])
+        snapshot.add_bin_pkg(bin_pkg_id, pkg_id, "placeholder", [])
+
+        # Add bootstrap package
+        boot_pkg_id = cimple.models.pkg.SrcPkgId("boot_custom")
+        boot_bin_pkg_id = cimple.models.pkg.BinPkgId("boot_custom-bin")
+        snapshot.add_src_pkg(boot_pkg_id, "0.0.1-1", [boot_bin_pkg_id], bootstrap=True)
+        snapshot.add_bin_pkg(boot_bin_pkg_id, boot_pkg_id, "placeholder", [], bootstrap=True)
+
+        graph = cimple.graph.Graph()
+        graph.add_node(pkg_id)
+        graph.add_node(bin_pkg_id)
+        graph.add_node(boot_pkg_id)
+        graph.add_node(boot_bin_pkg_id)
+        # Build graph is the reversed dependency graph: src → bin (produced by src)
+        graph.add_edge(pkg_id, bin_pkg_id)
+        graph.add_edge(boot_pkg_id, boot_bin_pkg_id)
+        build_graph = cimple.graph.BuildGraph(graph)
+
+        # Mock dependencies
+        mock_build_pkg = mocker.patch.object(
+            pkg_processor, "build_pkg", return_value={"custom": "dummy.tar"}
+        )
+        mocker.patch("cimple.snapshot.ops.tarfile.open")
+        mocker.patch("cimple.snapshot.ops.cimple_hash.hash_file", return_value="fakehash")
+        mocker.patch("pathlib.Path.rename")
+
+        # WHEN: executing the build graph
+        cimple.snapshot.ops.execute_build_graph(
+            build_graph,
+            snapshot=snapshot,
+            pkg_processor=pkg_processor,
+            pkg_index_path=cimple_pi,
+            parallel=1,
+        )
+
+        # THEN: build_pkg should be called twice, once with bootstrap=False and once with
+        # bootstrap=True
+        assert mock_build_pkg.call_count == 2
+
+        # Check that both packages were built and with correct arguments
+        built_src_ids = [call.args[0] for call in mock_build_pkg.call_args_list]
+        assert set(built_src_ids) == {pkg_id, boot_pkg_id}
+
+        for call in mock_build_pkg.call_args_list:
+            if call.args[0] == pkg_id:
+                assert call.kwargs.get("bootstrap") is False
+            elif call.args[0] == boot_pkg_id:
+                assert call.kwargs.get("bootstrap") is True

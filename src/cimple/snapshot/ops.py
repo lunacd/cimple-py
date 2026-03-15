@@ -12,12 +12,11 @@ import cimple.snapshot.core
 from cimple import constants, logging
 from cimple import hash as cimple_hash
 from cimple import tarfile as cimple_tarfile
-from cimple.models import pkg as pkg_models
 from cimple.pkg import ops as pkg_ops
 
 
 class VersionedSourcePackage(pydantic.BaseModel):
-    id: pkg_models.SrcPkgId
+    id: cimple.models.pkg.SrcPkgId
     version: str
 
 
@@ -38,6 +37,7 @@ def execute_build_graph(
         [next_pkg] = build_graph.get_pkgs_to_build(max_count=1)
 
         # Build package
+        is_bootstrap = snapshot.is_in_bootstrap(next_pkg)
         output_paths = pkg_processor.build_pkg(
             next_pkg,
             pi_path=pkg_index_path,
@@ -45,6 +45,7 @@ def execute_build_graph(
             build_options=cimple.pkg.ops.PackageBuildOptions(
                 parallel=parallel, extra_paths=extra_paths or []
             ),
+            bootstrap=is_bootstrap,
         )
 
         # Tar it up and add to pkg store
@@ -66,7 +67,7 @@ def execute_build_graph(
                     _ = tar_path.rename(new_file_path)
 
             # Commit SHA into snapshot
-            bin_pkg_id = pkg_models.BinPkgId(binary_name)
+            bin_pkg_id = cimple.models.pkg.BinPkgId(binary_name)
             snapshot.bin_pkg_map[bin_pkg_id].sha256 = tar_hash
 
         # Mark package as built in the build graph
