@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest", "pytest-cov", "pytest-mock", "ruff", "pyright", "pyfakefs", "ty"]
+dev = ["pytest", "pytest-cov", "pytest-mock", "ruff", "pyright", "pyfakefs"]
 
 [project.scripts]
 cimple = "cimple.main:main"
@@ -43,6 +43,3 @@ select = [
     "PTH", # Use pathlib instead of os.path
     "NPY", # Some numpy-specific things
 ]
-
-[tool.pyright]
-reportImplicitStringConcatenation = "none"
