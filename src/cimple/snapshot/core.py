@@ -155,12 +155,13 @@ class CimpleSnapshot:
         snapshot_name = datetime.datetime.now(tz=datetime.UTC).strftime("%Y%m%d-%H%M%S")
         pkgs = [
             cimple.models.snapshot.SnapshotPkg(pkg)
-            for pkg in itertools.chain(self.src_pkg_map.values(), self.bin_pkg_map.values())
+            for pkg in (*self.src_pkg_map.values(), *self.bin_pkg_map.values())
         ]
         bootstrap_pkgs = [
             cimple.models.snapshot.SnapshotPkg(pkg)
-            for pkg in itertools.chain(
-                self.bootstrap_src_pkg_map.values(), self.bootstrap_bin_pkg_map.values()
+            for pkg in (
+                *self.bootstrap_src_pkg_map.values(),
+                *self.bootstrap_bin_pkg_map.values(),
             )
         ]
 
@@ -476,7 +477,7 @@ class CimpleSnapshot:
         )
 
         # Resolve all build and runtime dependencies and make sure they are satisfied
-        for pkg in itertools.chain(pkg_changes.add, pkg_changes.update):
+        for pkg in (*pkg_changes.add, *pkg_changes.update):
             deps_are_valid = self.validate_depends(pkg.id)
             if not deps_are_valid:
                 raise RuntimeError(f"Unable to resolve dependencies for package {pkg.id.name}")

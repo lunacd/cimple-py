@@ -860,7 +860,7 @@ class TestExecuteBuildGraph:
         snapshot.add_src_pkg(boot_pkg_id, "0.0.1-1", [boot_bin_pkg_id], bootstrap=True)
         snapshot.add_bin_pkg(boot_bin_pkg_id, boot_pkg_id, "placeholder", [], bootstrap=True)
 
-        graph = cimple.graph.Graph()
+        graph: cimple.graph.Graph[cimple.models.pkg.PkgId] = cimple.graph.Graph()
         graph.add_node(pkg_id)
         graph.add_node(bin_pkg_id)
         graph.add_node(boot_pkg_id)
