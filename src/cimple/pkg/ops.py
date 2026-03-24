@@ -2,7 +2,6 @@ import dataclasses
 import pathlib
 import tarfile
 import tempfile
-import typing
 
 import patch_ng
 import requests
@@ -308,7 +307,7 @@ class PkgOps:
                 # same config file
                 return self._build_custom_pkg(
                     package_id,
-                    typing.cast("pkg_config_models.PkgConfigCustom", config.root),
+                    config.root,
                     cimple_snapshot=cimple_snapshot,
                     pi_path=pi_path,
                     build_options=build_options,
@@ -317,7 +316,7 @@ class PkgOps:
             case "cygwin":
                 assert not bootstrap, "Bootstrap packages cannot be of type cygwin"
                 return self._build_cygwin_pkg(
-                    typing.cast("pkg_config_models.PkgConfigCygwin", config.root),
+                    config.root,
                 )
 
     def resolve_dependencies(

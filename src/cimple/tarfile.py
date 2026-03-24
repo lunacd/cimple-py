@@ -63,11 +63,15 @@ def extract_directory_from_tar(
     tar.extractall(target_directory, get_directory_members(), filter=writable_extract_filter)
 
 
+type TarfileMode = typing.Literal["w:zst", "r:zst", "w:gz", "r:gz", "w:xz", "r:xz"]
+
+
 def get_tarfile_mode(
-    operation: typing.Literal["r", "w"], compression: typing.Literal["gz", "xz", "zst"]
-) -> typing.Literal["w:zst", "r:zst", "w:gz", "r:gz", "w:xz", "r:xz"]:
+    operation: typing.Literal["r", "w"],
+    compression: typing.Literal["gz", "xz", "zst"],
+) -> TarfileMode:
     """
     This is more importantly working around type checking than code reuse.
     """
 
-    return f"{operation}:{compression}"  # pyright: ignore[reportReturnType]
+    return typing.cast("TarfileMode", f"{operation}:{compression}")

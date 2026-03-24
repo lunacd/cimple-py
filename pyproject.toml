@@ -8,16 +8,10 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
-dependencies = [
-    "pydantic",
-    "typer",
-    "requests",
-    "patch-ng",
-    "networkx",
-]
+dependencies = ["pydantic", "typer", "requests", "patch-ng", "networkx"]
 
 [dependency-groups]
-dev = ["pytest", "pytest-cov", "pytest-mock", "ruff", "pyright", "pyfakefs"]
+dev = ["pytest", "pytest-cov", "pytest-mock", "ruff", "pyfakefs", "pyrefly"]
 
 [project.scripts]
 cimple = "cimple.main:main"
@@ -43,3 +37,6 @@ select = [
     "PTH", # Use pathlib instead of os.path
     "NPY", # Some numpy-specific things
 ]
+
+[tool.pyrefly]
+search-path = [".", "src"]

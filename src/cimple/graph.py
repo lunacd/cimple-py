@@ -92,9 +92,10 @@ class Graph[T]:
         return len(self.broken_edges) > 0
 
     def generic_bfs_edges(
-        self, source: T, neighbors: typing.Callable[[T], typing.Iterable[T]] | None = None
+        self, source: T, neighbors: typing.Callable[[T], typing.Iterable[T]]
     ) -> typing.Iterable[tuple[T, T]]:
         assert not self.is_broken(), "Cannot traverse a graph with broken edges"
+        # pyrefly: ignore[missing-attribute]
         return nx.generic_bfs_edges(self.graph, source=source, neighbors=neighbors)
 
     def neighbors(self, node: T) -> typing.Iterator[T]:
@@ -115,7 +116,7 @@ class Graph[T]:
         Return the descendants of a node in the graph.
         """
         assert not self.is_broken(), "Cannot get descendants of a graph with broken edges"
-        return nx.descendants(self.graph, node)
+        return nx.descendants(self.graph, node)  # pyrefly: ignore[missing-attribute]
 
     def subgraph(self, nodes: typing.Iterable[T]) -> Graph[T]:
         """
@@ -123,7 +124,7 @@ class Graph[T]:
         """
         assert not self.is_broken(), "Cannot get subgraph of a graph with broken edges"
         subgraph = Graph()
-        subgraph.graph = typing.cast("nx.DiGraph[T]", self.graph.subgraph(nodes).copy())
+        subgraph.graph = self.graph.subgraph(nodes).copy()
         return subgraph
 
     def in_degrees(self) -> typing.Iterable[tuple[T, int]]:

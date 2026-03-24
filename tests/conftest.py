@@ -1,5 +1,3 @@
-# pyright: reportUnknownMemberType=false
-
 import importlib.resources
 import pathlib
 import typing
