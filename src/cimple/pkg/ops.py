@@ -110,11 +110,6 @@ class PkgOps:
     ) -> dict[str, pathlib.Path]:
         # Prepare chroot image
         cimple.logging.info("Preparing image")
-        # TODO: support multiple platforms and arch
-        if config.input.image_type is None:
-            image_path = None
-        else:
-            image_path = images.prepare_image("windows", "x86_64", config.input.image_type)
 
         # Ensure needed directories exist
         cimple.util.ensure_path(cimple.constants.cimple_orig_dir)
@@ -203,7 +198,6 @@ class PkgOps:
         cimple_builtin_variables: dict[str, str] = {
             "cimple_output_dir": output_dir.as_posix(),
             "cimple_build_dir": build_dir.as_posix(),
-            "cimple_image_dir": "" if image_path is None else image_path.as_posix(),
             "cimple_deps_dir": deps_dir.as_posix(),
             "cimple_parallelism": str(build_options.parallel),
         }
@@ -216,6 +210,7 @@ class PkgOps:
 
         def interpolate_variables(input_str: str):
             return cimple.str_interpolation.interpolate(input_str, cimple_builtin_variables)
+
 
         # TODO: support overriding rules per-platform
         for rule in config.rules.default:
@@ -239,7 +234,6 @@ class PkgOps:
 
             process = cimple.process.run_command(
                 interpolated_cmd,
-                image_path=image_path,
                 dependency_path=deps_dir,
                 cwd=cwd,
                 env=interpolated_env,

@@ -139,4 +139,4 @@ def get_msvc_envs() -> dict[str, str]:
         raise RuntimeError("PATH or Path not found in MSVC environment")
     envs["PATH"] = filter_msvc_path(raw_envs.get("PATH", raw_envs.get("Path", "")))
 
-    return envs
+    return {}
