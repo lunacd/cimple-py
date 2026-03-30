@@ -1,4 +1,5 @@
 import dataclasses
+import json
 import pathlib
 import tarfile
 import tempfile
@@ -10,6 +11,7 @@ import cimple.constants
 import cimple.hash
 import cimple.logging
 import cimple.models.pkg
+import cimple.models.pkg_config
 import cimple.pkg.core
 import cimple.process
 import cimple.snapshot.core
@@ -110,11 +112,6 @@ class PkgOps:
     ) -> dict[str, pathlib.Path]:
         # Prepare chroot image
         cimple.logging.info("Preparing image")
-        # TODO: support multiple platforms and arch
-        if config.input.image_type is None:
-            image_path = None
-        else:
-            image_path = images.prepare_image("windows", "x86_64", config.input.image_type)
 
         # Ensure needed directories exist
         cimple.util.ensure_path(cimple.constants.cimple_orig_dir)
@@ -200,22 +197,60 @@ class PkgOps:
         cimple.logging.info("Starting build")
 
         # TODO: built-in variables will likely need a more organized way to pass around
-        cimple_builtin_variables: dict[str, str] = {
+        builtin_variables: dict[str, str] = {
             "cimple_output_dir": output_dir.as_posix(),
             "cimple_build_dir": build_dir.as_posix(),
-            "cimple_image_dir": "" if image_path is None else image_path.as_posix(),
             "cimple_deps_dir": deps_dir.as_posix(),
             "cimple_parallelism": str(build_options.parallel),
         }
         # TODO: remove hard-coded platform and arch
-        cimple_builtin_variables.update(
+        builtin_variables.update(
             images.ops.get_image_specific_builtin_variables(
-                "windows", "x86_64", config.input.image_type, cimple_builtin_variables
+                "windows", "x86_64", config.input.image_type, builtin_variables
             )
         )
 
         def interpolate_variables(input_str: str):
-            return cimple.str_interpolation.interpolate(input_str, cimple_builtin_variables)
+            return cimple.str_interpolation.interpolate(input_str, builtin_variables)
+
+        # Start execution container
+        # TODO: Take container name from platform & arch
+        extra_path_mounts: list[cimple.process.OciMount] = []
+        for index, extra_path in enumerate(build_options.extra_paths):
+            target_path = pathlib.Path("C:/cimple-extra-paths") / str(index)
+            extra_path_mounts.append(
+                cimple.process.OciMount(source=extra_path, target=target_path, read_only=True)
+            )
+
+        with tempfile.TemporaryDirectory() as temp_data_dir:
+            temp_data_dir_path = pathlib.Path(temp_data_dir)
+            rules_file_path = temp_data_dir_path / "rules.json"
+            normalized_rules = cimple.models.pkg_config.normalize_rules(
+                config.rules, default_cwd=build_dir, builtin_variables=builtin_variables
+            )
+            with rules_file_path.open("w") as rules_file:
+                rules_file.write(json.dumps(normalized_rules))
+
+            container_id = cimple.process.start_container(
+                "cimple-windows-x86_64",
+                [
+                    cimple.process.OciMount(
+                        source=build_dir, target=pathlib.Path("C:/cimple-build")
+                    ),
+                    cimple.process.OciMount(
+                        source=output_dir, target=pathlib.Path("C:/cimple-output")
+                    ),
+                    cimple.process.OciMount(source=deps_dir, target=pathlib.Path("C:/cimple-root")),
+                    cimple.process.OciMount(
+                        source=temp_data_dir_path,
+                        target=pathlib.Path("C:/cimple-data"),
+                        read_only=True,
+                    ),
+                    *extra_path_mounts,
+                ],
+            )
+
+            # TODO: run rules inside container
 
         # TODO: support overriding rules per-platform
         for rule in config.rules.default:
@@ -238,8 +273,8 @@ class PkgOps:
                 interpolated_env[interpolate_variables(env_key)] = interpolate_variables(env_val)
 
             process = cimple.process.run_command(
+                container_id,
                 interpolated_cmd,
-                image_path=image_path,
                 dependency_path=deps_dir,
                 cwd=cwd,
                 env=interpolated_env,

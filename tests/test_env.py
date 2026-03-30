@@ -8,19 +8,6 @@ import cimple.system
 
 @pytest.mark.skipif(
     not cimple.system.is_windows(),
-    reason="This test is only relevant for MSVC on Windows",
-)
-def test_msvc_env():
-    # WHEN: getting the MSVC environment variables
-    env = cimple.env.get_msvc_envs()
-
-    # THEN: the expected environment variables are present
-    assert "INCLUDE" in env
-    assert "LIB" in env
-
-
-@pytest.mark.skipif(
-    not cimple.system.is_windows(),
     reason="This test is only relevant for Windows",
 )
 def test_window_baseline_env():

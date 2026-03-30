@@ -1,3 +1,4 @@
+import dataclasses
 import os
 import shutil
 import subprocess
@@ -5,13 +6,13 @@ import typing
 
 import cimple.env
 import cimple.logging
+import cimple.system
 
 if typing.TYPE_CHECKING:
     import pathlib
 
 
 def construct_path_env_var(
-    image_path: pathlib.Path | None,
     dependency_path: pathlib.Path | None,
     extra_paths: list[pathlib.Path],
 ):
@@ -22,16 +23,55 @@ def construct_path_env_var(
     path_arr: list[str] = [p.as_posix() for p in extra_paths]
     if dependency_path is not None:
         path_arr.append(str(dependency_path / "bin"))
-        path_arr.append(str(dependency_path / "usr" / "bin"))
-    if image_path is not None:
-        path_arr.append(str(image_path / "usr" / "bin"))
 
     return os.pathsep.join(path_arr)
 
 
+@dataclasses.dataclass
+class OciMount:
+    source: pathlib.Path
+    target: pathlib.Path
+    read_only: bool = False
+
+
+def start_container(image: str, mounts: list[OciMount]) -> str:
+    """
+    Start a container with the given image.
+    Returns the container ID.
+    """
+    mount_flags: list[str] = []
+    for mount in mounts:
+        mount_flags.append("--mount")
+        mount_flags.append(
+            f"type=bind,src={mount.source},dst={mount.target}"
+            f"{',readonly' if mount.read_only else ''}"
+        )
+
+    if cimple.system.is_windows():
+        # A build can take a maximum of 2 hours
+        docker_process = subprocess.run(
+            [
+                "docker",
+                "run",
+                "-d",
+                *mount_flags,
+                image,
+                "powershell",
+                "-Command",
+                "Start-Sleep -Seconds 7200",
+            ],
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+        return docker_process.stdout.strip()
+
+    raise NotImplementedError()
+
+
 def run_command(
+    container_id: str,
     args: list[str],
-    image_path: pathlib.Path | None,
     dependency_path: pathlib.Path | None,
     cwd: pathlib.Path,
     env: dict[str, str] | None,
@@ -44,7 +84,7 @@ def run_command(
     if extra_paths is None:
         extra_paths = []
 
-    path = construct_path_env_var(image_path, dependency_path, extra_paths)
+    path = construct_path_env_var(dependency_path, extra_paths)
 
     cmd = shutil.which(args[0], path=path)
     if cmd is None:
