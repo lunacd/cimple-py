@@ -1,3 +1,4 @@
+import dataclasses
 import os
 import shutil
 import subprocess
@@ -26,15 +27,39 @@ def construct_path_env_var(
     return os.pathsep.join(path_arr)
 
 
-def start_container(image: str) -> str:
+@dataclasses.dataclass
+class OciMount:
+    source: pathlib.Path
+    target: pathlib.Path
+    read_only: bool = False
+
+
+def start_container(image: str, mounts: list[OciMount]) -> str:
     """
     Start a container with the given image.
     Returns the container ID.
     """
+    mount_flags: list[str] = []
+    for mount in mounts:
+        mount_flags.append("--mount")
+        mount_flags.append(
+            f"type=bind,src={mount.source},dst={mount.target}"
+            f"{',readonly' if mount.read_only else ''}"
+        )
+
     if cimple.system.is_windows():
         # A build can take a maximum of 2 hours
         docker_process = subprocess.run(
-            ["docker", "run", "-d", image, "powershell", "-Command", "Start-Sleep -Seconds 7200"],
+            [
+                "docker",
+                "run",
+                "-d",
+                *mount_flags,
+                image,
+                "powershell",
+                "-Command",
+                "Start-Sleep -Seconds 7200",
+            ],
             check=True,
             text=True,
             capture_output=True,

@@ -4,6 +4,7 @@ import typing
 import pydantic
 
 import cimple.models.pkg
+import cimple.str_interpolation
 
 if typing.TYPE_CHECKING:
     import pathlib
@@ -38,6 +39,16 @@ class PkgConfigInputSection(pydantic.BaseModel):
     tarball_compression: typing.Literal["gz", "xz"] = "gz"
     image_type: str | None = None
     patches: list[str] = []
+
+
+class PkgConfigNormalizedRule(pydantic.BaseModel):
+    """
+    A set of rules, normalized based on the platforms and with variables instantiated.
+    """
+
+    cwd: pathlib.Path
+    rule: list[str]
+    env: dict[str, str]
 
 
 class PkgConfigRule(pydantic.BaseModel):
@@ -154,3 +165,36 @@ def load_pkg_config(
     with config_path.open("rb") as f:
         config_dict = tomllib.load(f)
         return PkgConfig.model_validate(config_dict)
+
+
+def normalize_rules(
+    rules: PkgConfigRulesSection,
+    default_cwd: pathlib.Path,
+    builtin_variables: dict[str, str],
+) -> list[PkgConfigNormalizedRule]:
+    def interpolate_variables(input_str: str):
+        return cimple.str_interpolation.interpolate(input_str, builtin_variables)
+
+    # TODO: support overriding rules per-platform
+    normalized_rules: list[PkgConfigNormalizedRule] = []
+    for rule in rules.default:
+        if isinstance(rule, str):
+            normalized_rule = PkgConfigNormalizedRule(cwd=default_cwd, env={}, rule=rule.split(" "))
+            continue
+
+        normalized_rule = PkgConfigNormalizedRule(
+            # TODO: Check to make sure cwd is valid and relative
+            cwd=default_cwd / interpolate_variables(rule.cwd) if rule.cwd else default_cwd,
+            env=rule.env if rule.env else {},
+            rule=rule.rule if isinstance(rule.rule, list) else rule.rule.split(" "),
+        )
+
+        # NOTE: at this point, cwd is interpolated, but env and rules are not.
+        normalized_rule.env = {
+            interpolate_variables(k): interpolate_variables(v)
+            for k, v in normalized_rule.env.items()
+        }
+        normalized_rule.rule = [interpolate_variables(segment) for segment in rule.rule]
+        normalized_rules.append(normalized_rule)
+
+    return normalized_rules
