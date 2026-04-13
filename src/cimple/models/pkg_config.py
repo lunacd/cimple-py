@@ -1,12 +1,10 @@
+import pathlib  # noqa: TC003
 import tomllib
 import typing
 
 import pydantic
 
 import cimple.models.pkg
-
-if typing.TYPE_CHECKING:
-    import pathlib
 
 
 class PkgConfigPkgSection(pydantic.BaseModel):
@@ -38,6 +36,20 @@ class PkgConfigInputSection(pydantic.BaseModel):
     tarball_compression: typing.Literal["gz", "xz"] = "gz"
     image_type: str | None = None
     patches: list[str] = []
+
+
+class PkgConfigNormalizedRule(pydantic.BaseModel):
+    """
+    A set of rules, normalized based on the platforms and with variables instantiated.
+    """
+
+    cwd: pathlib.Path
+    rule: list[str]
+    env: dict[str, str]
+
+
+class PkgConfigNormalizedRulesList(pydantic.RootModel):
+    root: list[PkgConfigNormalizedRule]
 
 
 class PkgConfigRule(pydantic.BaseModel):
