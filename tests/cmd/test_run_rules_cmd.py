@@ -48,9 +48,7 @@ def test_run_rules_cmd_failed_cmd(mocker: pytest_mock.MockerFixture):
         # GIVEN: a command returned non-zero
         process_mock = mocker.Mock()
         process_mock.returncode = 1
-        subprocess_run_mock = mocker.patch(
-            "cimple.cmd.run_rules.subprocess.run", return_value=process_mock
-        )
+        mocker.patch("cimple.cmd.run_rules.subprocess.run", return_value=process_mock)
         mocker.patch("cimple.cmd.run_rules.shutil.which", return_value="/path/to/cmd")
 
         # WHEN: run_rules_cmd is invoked on the rules file
