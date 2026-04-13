@@ -5,7 +5,7 @@ import subprocess
 import cimple.system
 
 
-def merge_env(base: dict[str, str], override: dict[str, str]) -> dict[str, str]:
+def merge_env(base: dict[str, str] | os._Environ, override: dict[str, str]) -> dict[str, str]:
     """
     Merge two environment variable dictionaries, with `override` taking precedence.
     """
