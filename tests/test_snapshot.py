@@ -520,21 +520,14 @@ class TestSnapshotOps:
     def test_snapshot_add_unresolvable_binary_dep(
         self,
         cimple_pi: pathlib.Path,
-        cygwin_release_content_side_effect: typing.Callable[
-            [str], tests.conftest.MockHttpResponse | tests.conftest.MockHttp404Response
-        ],
-        mocker: MockerFixture,
         helpers: tests.conftest.Helpers,
     ):
         # GIVEN: a root snapshot
-        _ = mocker.patch(
-            "cimple.pkg.cygwin.requests.get", side_effect=cygwin_release_content_side_effect
-        )
         root_snapshot = helpers.mock_cimple_snapshot([])
         changes = cimple.models.snapshot.SnapshotChanges.model_construct(
             add=[
                 cimple.models.snapshot.SnapshotChangeAdd.model_construct(
-                    name="make", version="4.4.1-2"
+                    name="pkg2", version="1.0-1"
                 )
             ],
             remove=[],
@@ -542,10 +535,10 @@ class TestSnapshotOps:
         )
 
         # WHEN: adding a package to the snapshot
-        # THEN: an exception is raised because cygwin is not in the snapshot
+        # THEN: an exception is raised because pkg3-bin is not in the snapshot
         with pytest.raises(
             RuntimeError,
-            match="Unable to resolve dependencies for package make",
+            match="Unable to resolve dependencies for package pkg2",
         ):
             _ = cimple.snapshot.ops.process_changes(
                 root_snapshot,
@@ -559,16 +552,9 @@ class TestSnapshotOps:
     def test_snapshot_add_unresolvable_build_dep(
         self,
         cimple_pi: pathlib.Path,
-        cygwin_release_content_side_effect: typing.Callable[
-            [str], tests.conftest.MockHttpResponse | tests.conftest.MockHttp404Response
-        ],
-        mocker: MockerFixture,
         helpers: tests.conftest.Helpers,
     ):
         # GIVEN: a root snapshot
-        _ = mocker.patch(
-            "cimple.pkg.cygwin.requests.get", side_effect=cygwin_release_content_side_effect
-        )
         root_snapshot = helpers.mock_cimple_snapshot([cimple.models.pkg.BinPkgId("pkg2-bin")])
         changes = cimple.models.snapshot.SnapshotChanges.model_construct(
             add=[
@@ -581,7 +567,7 @@ class TestSnapshotOps:
         )
 
         # WHEN: adding a package to the snapshot
-        # THEN: an exception is raised because cygwin is not in the snapshot
+        # THEN: an exception is raised because pkg1-bin is not in the snapshot
         with pytest.raises(
             RuntimeError,
             match="Unable to resolve dependencies for package custom",
@@ -598,32 +584,30 @@ class TestSnapshotOps:
     def test_snapshot_add_simple(
         self,
         cimple_pi: pathlib.Path,
-        cygwin_release_content_side_effect: typing.Callable[
-            [str], tests.conftest.MockHttpResponse | tests.conftest.MockHttp404Response
-        ],
         mocker: MockerFixture,
         helpers: tests.conftest.Helpers,
     ):
         # GIVEN: a snapshot with make's binary dependencies
-        _ = mocker.patch(
-            "cimple.pkg.cygwin.requests.get", side_effect=cygwin_release_content_side_effect
-        )
         snapshot = helpers.mock_cimple_snapshot(
             [
-                cimple.models.pkg.BinPkgId("cygwin"),
-                cimple.models.pkg.BinPkgId("libguile3.0_1"),
-                cimple.models.pkg.BinPkgId("libintl8"),
+                cimple.models.pkg.BinPkgId("pkg3-bin"),
+                cimple.models.pkg.BinPkgId("pkg4-bin"),
             ]
         )
         changes = cimple.models.snapshot.SnapshotChanges.model_construct(
             add=[
                 cimple.models.snapshot.SnapshotChangeAdd.model_construct(
-                    name="make", version="4.4.1-2"
+                    name="pkg2", version="1.0-1"
                 )
             ],
             remove=[],
             update=[],
         )
+        # TODO: rethink interface design that made this necessary
+        mocker.patch("cimple.pkg.ops.PkgOps.build_pkg", return_value={"pkg2-bin": "dummy.tar"})
+        mocker.patch("cimple.snapshot.ops.tarfile.open")
+        mocker.patch("cimple.snapshot.ops.cimple_hash.hash_file", return_value="fakehash")
+        mocker.patch("pathlib.Path.rename")
 
         # WHEN: adding a package to the snapshot
         cimple.snapshot.ops.process_changes(
@@ -635,58 +619,51 @@ class TestSnapshotOps:
         )
 
         # THEN: the package should be in the snapshot
-        assert cimple.models.pkg.SrcPkgId("make") in snapshot.src_pkg_map
-        assert cimple.models.pkg.BinPkgId("make") in snapshot.bin_pkg_map
-
-        # THEN: pkg exists in the pkg store
-        make_bin_pkg = snapshot.bin_pkg_map[cimple.models.pkg.BinPkgId("make")]
-        sha256 = make_bin_pkg.sha256
-        assert (cimple.constants.cimple_pkg_dir / f"make-{sha256}.tar.xz").exists()
+        assert cimple.models.pkg.SrcPkgId("pkg2") in snapshot.src_pkg_map
+        assert cimple.models.pkg.BinPkgId("pkg2-bin") in snapshot.bin_pkg_map
 
         # THEN: the dependencies are correct
-        assert all(d.type == "bin" for d in make_bin_pkg.depends)
-        assert sorted([d.name for d in make_bin_pkg.depends]) == [
-            "cygwin",
-            "libguile3.0_1",
-            "libintl8",
-        ]
+        bin_pkg = snapshot.bin_pkg_map[cimple.models.pkg.BinPkgId("pkg2-bin")]
+        assert all(d.type == "bin" for d in bin_pkg.depends)
+        assert bin_pkg.depends == [cimple.models.pkg.BinPkgId("pkg3-bin")]
 
     @pytest.mark.usefixtures("basic_cimple_store")
     def test_snapshot_add_multiple_packages(
         self,
         cimple_pi: pathlib.Path,
-        cygwin_release_content_side_effect: typing.Callable[
-            [str], tests.conftest.MockHttpResponse | tests.conftest.MockHttp404Response
-        ],
         mocker: MockerFixture,
         helpers: tests.conftest.Helpers,
     ):
-        # GIVEN: a snapshot with make's binary dependencies, except cygwin
-        _ = mocker.patch(
-            "cimple.pkg.cygwin.requests.get", side_effect=cygwin_release_content_side_effect
-        )
+        # GIVEN: a snapshot with pkg1 and pkg2's binary dependencies
+        # Note that pkg1's dependency on pkg2 is provided within the same change
         snapshot = helpers.mock_cimple_snapshot(
             [
-                cimple.models.pkg.BinPkgId("libguile3.0_1"),
-                cimple.models.pkg.BinPkgId("cygwin"),
-                cimple.models.pkg.BinPkgId("libiconv2"),
+                cimple.models.pkg.BinPkgId("pkg3-bin"),
+                cimple.models.pkg.BinPkgId("pkg4-bin"),
             ]
         )
         changes = cimple.models.snapshot.SnapshotChanges.model_construct(
             add=[
                 cimple.models.snapshot.SnapshotChangeAdd.model_construct(
-                    name="make", version="4.4.1-2"
+                    name="pkg1", version="1.0-1"
                 ),
                 cimple.models.snapshot.SnapshotChangeAdd.model_construct(
-                    name="libintl8", version="0.22.5-1"
+                    name="pkg2", version="1.0-1"
                 ),
             ],
             remove=[],
             update=[],
         )
+        mocker.patch(
+            "cimple.pkg.ops.PkgOps.build_pkg",
+            side_effect=[{"pkg1-bin": "dummy.tar"}, {"pkg2-bin": "dummy.tar"}],
+        )
+        mocker.patch("cimple.snapshot.ops.tarfile.open")
+        mocker.patch("cimple.snapshot.ops.cimple_hash.hash_file", return_value="fakehash")
+        mocker.patch("pathlib.Path.rename")
 
-        # WHEN: adding both make and cygwin to the snapshot
-        # Note that cygwin is specified after make, in the reverse order of their dependency
+        # WHEN: adding both pkg1 and pkg2 to the snapshot
+        # Note that pkg2 is specified after pkg1, in the reverse order of their dependency
         # relationship. This is to verify that the order of packages specified does not matter.
         cimple.snapshot.ops.process_changes(
             snapshot,
@@ -697,21 +674,18 @@ class TestSnapshotOps:
         )
 
         # THEN: the package should be in the snapshot
-        assert cimple.models.pkg.SrcPkgId("make") in snapshot.src_pkg_map
-        assert cimple.models.pkg.BinPkgId("make") in snapshot.bin_pkg_map
-
-        # THEN: pkg exists in the pkg store
-        make_bin_pkg = snapshot.bin_pkg_map[cimple.models.pkg.BinPkgId("make")]
-        sha256 = make_bin_pkg.sha256
-        assert (cimple.constants.cimple_pkg_dir / f"make-{sha256}.tar.xz").exists()
+        assert cimple.models.pkg.SrcPkgId("pkg1") in snapshot.src_pkg_map
+        assert cimple.models.pkg.BinPkgId("pkg1-bin") in snapshot.bin_pkg_map
+        assert cimple.models.pkg.SrcPkgId("pkg2") in snapshot.src_pkg_map
+        assert cimple.models.pkg.BinPkgId("pkg2-bin") in snapshot.bin_pkg_map
 
         # THEN: the dependencies are correct
-        assert all(d.type == "bin" for d in make_bin_pkg.depends)
-        assert sorted([d.name for d in make_bin_pkg.depends]) == [
-            "cygwin",
-            "libguile3.0_1",
-            "libintl8",
-        ]
+        pkg1_bin_pkg = snapshot.bin_pkg_map[cimple.models.pkg.BinPkgId("pkg1-bin")]
+        assert all(d.type == "bin" for d in pkg1_bin_pkg.depends)
+        assert pkg1_bin_pkg.depends == []
+        pkg2_bin_pkg = snapshot.bin_pkg_map[cimple.models.pkg.BinPkgId("pkg2-bin")]
+        assert all(d.type == "bin" for d in pkg2_bin_pkg.depends)
+        assert pkg2_bin_pkg.depends == [cimple.models.pkg.BinPkgId("pkg3-bin")]
 
     @pytest.mark.usefixtures("basic_cimple_store")
     def test_snapshot_add_custom(

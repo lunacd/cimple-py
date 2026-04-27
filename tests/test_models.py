@@ -27,7 +27,7 @@ import cimple.models.stream
                     {"cwd": "/build/dir", "env": {"VAR1": "value1"}, "rule": ["make", "-j4"]},
                 ]
             },
-            "binaries": {"cmake": {"depends": ["cygwin"], "output_dir": None}},
+            "binaries": {"cmake": {"depends": ["custom"], "output_dir": None}},
         },
     ],
 )
