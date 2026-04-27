@@ -1,10 +1,13 @@
+import os
 import pathlib  # noqa: TC003
 import tomllib
 import typing
 
 import pydantic
 
+import cimple.env
 import cimple.models.pkg
+import cimple.str_interpolation
 
 
 class PkgConfigPkgSection(pydantic.BaseModel):
@@ -136,3 +139,57 @@ def load_pkg_config(
     with config_path.open("rb") as f:
         config_dict = tomllib.load(f)
         return PkgConfig.model_validate(config_dict)
+
+
+def normalize_rules(
+    rules: PkgConfigRulesSection,
+    default_cwd: pathlib.Path,
+    builtin_variables: dict[str, str],
+    bin_paths: list[pathlib.Path],
+) -> PkgConfigNormalizedRulesList:
+    def interpolate_variables(input_str: str):
+        return cimple.str_interpolation.interpolate(input_str, builtin_variables)
+
+    # TODO: support overriding rules per-platform
+    normalized_rules: list[PkgConfigNormalizedRule] = []
+    for rule in rules.default:
+        baseline_env = (
+            {"PATH": os.pathsep.join([path.as_posix() for path in bin_paths])}
+            if len(bin_paths) > 0
+            else {}
+        )
+
+        if isinstance(rule, str):
+            normalized_rule = PkgConfigNormalizedRule(
+                cwd=default_cwd,
+                env=baseline_env,
+                rule=[
+                    cimple.str_interpolation.interpolate(segment, context=builtin_variables)
+                    for segment in rule.split(" ")
+                ],
+            )
+            normalized_rules.append(normalized_rule)
+            continue
+
+        final_env = cimple.env.merge_env(
+            baseline_env,
+            rule.env if rule.env else {},
+        )
+
+        normalized_rule = PkgConfigNormalizedRule(
+            # TODO: Check to make sure cwd is valid and relative
+            cwd=default_cwd / interpolate_variables(rule.cwd) if rule.cwd else default_cwd,
+            env=final_env,
+            rule=rule.rule if isinstance(rule.rule, list) else rule.rule.split(" "),
+        )
+
+        # NOTE: at this point, cwd is interpolated, but env and rules are not.
+        normalized_rule.env = {
+            interpolate_variables(k): interpolate_variables(v)
+            for k, v in normalized_rule.env.items()
+        }
+        array_rules = rule.rule.split(" ") if isinstance(rule.rule, str) else rule.rule
+        normalized_rule.rule = [interpolate_variables(segment) for segment in array_rules]
+        normalized_rules.append(normalized_rule)
+
+    return PkgConfigNormalizedRulesList(root=normalized_rules)
