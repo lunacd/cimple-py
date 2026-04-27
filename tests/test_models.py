@@ -8,12 +8,8 @@ import cimple.models.stream
 @pytest.mark.parametrize(
     "config",
     [
-        # Cygwin package
-        {"schema_version": 0, "pkg_type": "cygwin", "name": "name", "version": "5.2.21-1"},
-        # Custom package
         {
             "schema_version": 0,
-            "pkg_type": "custom",
             "name": "name",
             "version": "1.2.3",
             "pkg": {"supported_platforms": ["windows-x86_64"], "build_depends": ["dep1"]},

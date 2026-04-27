@@ -726,7 +726,7 @@ class TestSnapshotOps:
             fs.makedirs(dummy_output_path.as_posix())
             fs.create_file(dummy_output_path / "custom.txt")
             mocker.patch(
-                "cimple.pkg.ops.PkgOps._build_custom_pkg",
+                "cimple.pkg.ops.PkgOps._build_pkg",
                 return_value={"custom": dummy_output_path},
             )
         changes = cimple.models.snapshot.SnapshotChanges.model_construct(
