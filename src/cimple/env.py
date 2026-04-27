@@ -63,45 +63,22 @@ def baseline_env() -> dict[str, str]:
     return baseline_env
 
 
-_msvc_base_path = "C:\\Program Files\\Microsoft Visual Studio\\18"
-_msvc_editions = ["Enterprise", "Professional", "Community"]
-
-
-def find_msvc() -> pathlib.Path | None:
-    """
-    Find the MSVC installation path.
-    """
-    for edition in _msvc_editions:
-        path = pathlib.Path(f"{_msvc_base_path}\\{edition}")
-        if path.is_dir():
-            return path
-
-    return None
-
-
-def filter_msvc_path(full_path: str) -> str:
-    """
-    Filter MSVC paths from the given PATH string.
-    """
-    path_parts = full_path.split(os.pathsep)
-    filtered_parts = [part for part in path_parts if part.startswith(_msvc_base_path)]
-    return os.pathsep.join(filtered_parts)
+_msvc_path = "C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools"
 
 
 def get_msvc_envs() -> dict[str, str]:
     """
     Get MSVC environment variables from the current environment.
     """
-    msvc_path = find_msvc()
-    if msvc_path is None:
+    if not pathlib.Path(_msvc_path).exists():
         raise RuntimeError("MSVC installation not found")
 
     # Run the Visual Studio Developer PowerShell to get the environment variables
     mscv_dev_shell_command = [
         "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
         "-Command",
-        f"&{{Import-Module '{msvc_path}\\Common7\\Tools\\Microsoft.VisualStudio."
-        f"DevShell.dll'; Enter-VsDevShell -VsInstallPath '{msvc_path}'"
+        f"&{{Import-Module '{_msvc_path}\\Common7\\Tools\\Microsoft.VisualStudio."
+        f"DevShell.dll'; Enter-VsDevShell -VsInstallPath '{_msvc_path}'"
         "-SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'; "
         'Get-ChildItem Env: | ForEach-Object { "$($_.Name)=$($_.Value)" } }',
     ]
@@ -120,23 +97,4 @@ def get_msvc_envs() -> dict[str, str]:
         key, value = line.split("=", 1)
         raw_envs[key] = value
 
-    # Copy over the relevant environment variables
-    envs: dict[str, str] = {}
-
-    assert "INCLUDE" in raw_envs, "INCLUDE not found in MSVC environment"
-    envs["INCLUDE"] = raw_envs["INCLUDE"]
-
-    assert "EXTERNAL_INCLUDE" in raw_envs, "EXTERNAL_INCLUDE not found in MSVC environment"
-    envs["EXTERNAL_INCLUDE"] = raw_envs["EXTERNAL_INCLUDE"]
-
-    assert "LIB" in raw_envs, "LIB not found in MSVC environment"
-    envs["LIB"] = raw_envs["LIB"]
-
-    assert "LIBPATH" in raw_envs, "LIBPATH not found in MSVC environment"
-    envs["LIBPATH"] = raw_envs["LIBPATH"]
-
-    if "PATH" not in raw_envs and "Path" not in raw_envs:
-        raise RuntimeError("PATH or Path not found in MSVC environment")
-    envs["PATH"] = filter_msvc_path(raw_envs.get("PATH", raw_envs.get("Path", "")))
-
-    return envs
+    return raw_envs
