@@ -14,8 +14,6 @@ from cimple.snapshot import core as snapshot_core
 if typing.TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
-    import tests.conftest
-
 
 class TestPkgInstall:
     @pytest.mark.usefixtures("basic_cimple_store")

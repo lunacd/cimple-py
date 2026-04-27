@@ -1,7 +1,6 @@
 import dataclasses
-import pathlib
 import tarfile
-import tempfile
+import typing
 
 import patch_ng
 import requests
@@ -20,6 +19,9 @@ from cimple import images
 from cimple.models import pkg as pkg_models
 from cimple.models import pkg_config as pkg_config_models
 from cimple.models import snapshot as snapshot_models
+
+if typing.TYPE_CHECKING:
+    import pathlib
 
 
 @dataclasses.dataclass
