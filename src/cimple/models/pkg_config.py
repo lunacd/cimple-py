@@ -153,7 +153,7 @@ def normalize_rules(
     # TODO: support overriding rules per-platform
     normalized_rules: list[PkgConfigNormalizedRule] = []
     for rule in rules.default:
-        baseline_env = (
+        baseline_env: dict[str, str] = (
             {"PATH": os.pathsep.join([path.as_posix() for path in bin_paths])}
             if len(bin_paths) > 0
             else {}
