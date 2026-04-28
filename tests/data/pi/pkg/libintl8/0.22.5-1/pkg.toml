@@ -1,5 +1,0 @@
-schema_version = 0
-pkg_type = "cygwin"
-
-name = "libintl8"
-version = "0.22.5-1"

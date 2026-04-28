@@ -14,8 +14,6 @@ from cimple.snapshot import core as snapshot_core
 if typing.TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
-    import tests.conftest
-
 
 class TestPkgInstall:
     @pytest.mark.usefixtures("basic_cimple_store")
@@ -174,44 +172,6 @@ class TestPkgOps:
         assert result["multiple1"].is_dir()
         assert "multiple2" in result
         assert result["multiple2"].is_dir()
-
-    @pytest.mark.usefixtures("basic_cimple_store")
-    @pytest.mark.skipif(
-        not cimple.system.platform_name().startswith("windows"),
-        reason="Cygwin is only relevant on Windows",
-    )
-    def test_build_cygwin_pkg(
-        self,
-        cimple_pi: pathlib.Path,
-        cygwin_release_content_side_effect: typing.Callable[
-            [str], tests.conftest.MockHttpResponse | tests.conftest.MockHttp404Response
-        ],
-        mocker: MockerFixture,
-    ):
-        # GIVEN: A basic Cimple store with root snapshot
-        _ = mocker.patch(
-            "cimple.pkg.cygwin.requests.get", side_effect=cygwin_release_content_side_effect
-        )
-        cimple_snapshot = snapshot_core.load_snapshot("root")
-        cimple_snapshot.add_src_pkg(pkg_models.SrcPkgId("make"), "4.4.1-2", [])
-        uut = pkg_ops.PkgOps()
-
-        # WHEN: Building a Cygwin package (make)
-        output_paths = uut.build_pkg(
-            pkg_models.SrcPkgId("make"),
-            pi_path=cimple_pi,
-            cimple_snapshot=cimple_snapshot,
-            build_options=pkg_ops.PackageBuildOptions(parallel=2),
-        )
-
-        # THEN:
-        assert len(output_paths) == 1
-        assert "make" in output_paths
-        assert output_paths["make"].exists(), f"Output path does not exist: {output_paths}"
-        assert (output_paths["make"] / "usr" / "bin" / "make.exe").exists(), (
-            "make.exe not found in output"
-        )
-        assert output_paths["make"].name == "make-4.4.1-2"
 
     @pytest.mark.usefixtures("basic_cimple_store")
     def test_build_bootstrap_pkg(self, cimple_pi: pathlib.Path, mocker: MockerFixture):

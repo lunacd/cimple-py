@@ -67,37 +67,6 @@ class MockHttp404Response:
         self.ok: bool = False
 
 
-@pytest.fixture(name="cygwin_release_content_side_effect")
-def cygwin_release_content_side_effect_fixture(
-    fs: pyfakefs.fake_filesystem.FakeFilesystem,
-) -> typing.Callable[[str], MockHttpResponse | MockHttp404Response]:
-    # It's not necessary for this mock to use pyfakefs.
-    # But for test cases that do use pyfakefs, this mock would stop working if it doesn't use it.
-
-    # Use data/cygwin directory to mock Cygwin repository files
-    with importlib.resources.path("tests", "data/cygwin") as cygwin_data_root:
-        _ = fs.add_real_directory(cygwin_data_root, target_path="/cygwin", read_only=True)
-
-    def mock_cygwin_release_content(url: str):
-        assert url.startswith(cimple.constants.cygwin_pkg_url), (
-            "Unexpected access to non-Cygwin URL"
-        )
-
-        print(f"Mocking Cygwin release content for URL: {url}")
-
-        cygwin_data_root = pathlib.Path("/cygwin")
-        relative_path = url[len(cimple.constants.cygwin_pkg_url) :].lstrip("/")
-        mock_file_path = cygwin_data_root / relative_path
-        print(f"Using local Cygwin data: {mock_file_path}")
-
-        if mock_file_path.exists():
-            return MockHttpResponse(mock_file_path.read_bytes())
-
-        return MockHttp404Response()
-
-    return mock_cygwin_release_content
-
-
 class Helpers:
     @staticmethod
     def mock_cimple_snapshot(

@@ -15,8 +15,8 @@ def test_load_pkg_config(cimple_pi: pathlib.Path):
     )
 
     # THEN: the pkg config is loaded correctly
-    assert pkg_config.root.id == cimple.models.pkg.SrcPkgId("pkg1")
-    assert pkg_config.root.version == "2.0-1"
+    assert pkg_config.id == cimple.models.pkg.SrcPkgId("pkg1")
+    assert pkg_config.version == "2.0-1"
 
 
 def test_load_pkg_config_bootstrap(cimple_pi: pathlib.Path):
@@ -27,5 +27,5 @@ def test_load_pkg_config_bootstrap(cimple_pi: pathlib.Path):
     )
 
     # THEN: the pkg config is loaded correctly
-    assert pkg_config.root.id == cimple.models.pkg.SrcPkgId("bootstrap1")
-    assert pkg_config.root.version == "1.0.0-1"
+    assert pkg_config.id == cimple.models.pkg.SrcPkgId("bootstrap1")
+    assert pkg_config.version == "1.0.0-1"

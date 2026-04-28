@@ -88,13 +88,12 @@ class PkgConfigBinarySection(pydantic.BaseModel):
         return [dep.name for dep in depends]
 
 
-class PkgConfigCustom(pydantic.BaseModel):
+class PkgConfig(pydantic.BaseModel):
     """
     Config for a cimple PI package
     """
 
     schema_version: typing.Literal[0]
-    pkg_type: typing.Literal["custom"] = "custom"
 
     name: str
     version: str
@@ -126,35 +125,6 @@ class PkgConfigCustom(pydantic.BaseModel):
     @property
     def build_depends(self) -> list[cimple.models.pkg.BinPkgId]:
         return self.pkg.build_depends
-
-
-class PkgConfigCygwin(pydantic.BaseModel):
-    """
-    Config for a Cygwin package
-    """
-
-    schema_version: typing.Literal[0]
-    pkg_type: typing.Literal["cygwin"] = "cygwin"
-    name: str
-    version: str
-
-    @property
-    def id(self) -> cimple.models.pkg.SrcPkgId:
-        return cimple.models.pkg.SrcPkgId(self.name)
-
-    @property
-    def binary_packages(self) -> list[cimple.models.pkg.BinPkgId]:
-        # Cygwin integration pulls in Cygwin binary packages directly,
-        # so it's impossible to have multiple binary packages per source
-        return [cimple.models.pkg.BinPkgId(self.name)]
-
-    @property
-    def build_depends(self) -> list[cimple.models.pkg.BinPkgId]:
-        return []
-
-
-class PkgConfig(pydantic.RootModel):
-    root: typing.Union[PkgConfigCustom, PkgConfigCygwin] = pydantic.Field(discriminator="pkg_type")  # noqa: UP007
 
 
 def load_pkg_config(

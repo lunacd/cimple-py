@@ -261,30 +261,30 @@ class CimpleSnapshot:
         This is a convenience method that dispatches add_src_pkg and add_bin_pkg.
         """
         self.add_src_pkg(
-            pkg_id=pkg_config.root.id,
-            pkg_version=pkg_config.root.version,
-            build_depends=dependency_data.build_depends[pkg_config.root.id],
+            pkg_id=pkg_config.id,
+            pkg_version=pkg_config.version,
+            build_depends=dependency_data.build_depends[pkg_config.id],
             bootstrap=bootstrap,
         )
         if bootstrap:
-            bootstrap_src_id = cimple.models.pkg.bootstrap_src_id(pkg_config.root.id)
+            bootstrap_src_id = cimple.models.pkg.bootstrap_src_id(pkg_config.id)
             self.add_src_pkg(
                 pkg_id=bootstrap_src_id,
-                pkg_version=pkg_config.root.version,
+                pkg_version=pkg_config.version,
                 build_depends=dependency_data.build_depends[bootstrap_src_id],
                 bootstrap=bootstrap,
             )
-        for binary_package in pkg_config.root.binary_packages:
+        for binary_package in pkg_config.binary_packages:
             if binary_package in self.bin_pkg_map:
                 raise RuntimeError(f"Binary package {binary_package} already exists in snapshot.")
             self.add_bin_pkg(
                 pkg_id=binary_package,
-                src_pkg=pkg_config.root.id,
+                src_pkg=pkg_config.id,
                 pkg_sha256="placeholder",  # SHA will be filled in separately
                 depends=dependency_data.depends[binary_package],
                 bootstrap=bootstrap,
             )
-            self.graph.add_edge(binary_package, pkg_config.root.id)
+            self.graph.add_edge(binary_package, pkg_config.id)
             if bootstrap:
                 bootstrap_bin_id = cimple.models.pkg.bootstrap_bin_id(binary_package)
                 if bootstrap_bin_id in self.bin_pkg_map:
@@ -293,13 +293,13 @@ class CimpleSnapshot:
                     )
                 self.add_bin_pkg(
                     pkg_id=bootstrap_bin_id,
-                    src_pkg=cimple.models.pkg.bootstrap_src_id(pkg_config.root.id),
+                    src_pkg=cimple.models.pkg.bootstrap_src_id(pkg_config.id),
                     pkg_sha256="placeholder",  # SHA will be filled in separately
                     depends=dependency_data.depends[bootstrap_bin_id],
                     bootstrap=bootstrap,
                 )
                 self.graph.add_edge(
-                    bootstrap_bin_id, cimple.models.pkg.bootstrap_src_id(pkg_config.root.id)
+                    bootstrap_bin_id, cimple.models.pkg.bootstrap_src_id(pkg_config.id)
                 )
 
     def remove_pkg(self, pkg_id: pkg_models.SrcPkgId) -> None:

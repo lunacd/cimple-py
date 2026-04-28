@@ -1,7 +1,6 @@
 import dataclasses
-import pathlib
 import tarfile
-import tempfile
+import typing
 
 import patch_ng
 import requests
@@ -20,7 +19,9 @@ from cimple import images
 from cimple.models import pkg as pkg_models
 from cimple.models import pkg_config as pkg_config_models
 from cimple.models import snapshot as snapshot_models
-from cimple.pkg import cygwin as pkg_cygwin
+
+if typing.TYPE_CHECKING:
+    import pathlib
 
 
 @dataclasses.dataclass
@@ -30,14 +31,6 @@ class PackageBuildOptions:
 
 
 class PkgOps:
-    def __init__(self):
-        self.cygwin_release: None | pkg_cygwin.CygwinRelease = None
-
-    def initialize_cygwin(self):
-        if self.cygwin_release is None:
-            self.cygwin_release = pkg_cygwin.CygwinRelease()
-            self.cygwin_release.parse_release_from_repo()
-
     def install_package_and_deps(
         self,
         target_path: pathlib.Path,
@@ -98,10 +91,10 @@ class PkgOps:
         ) as tar:
             tar.extractall(target_path, filter=cimple.tarfile.writable_extract_filter)
 
-    def _build_custom_pkg(
+    def _build_pkg(
         self,
         package_id: pkg_models.SrcPkgId,
-        config: pkg_config_models.PkgConfigCustom,
+        config: pkg_config_models.PkgConfig,
         *,
         pi_path: pathlib.Path,
         cimple_snapshot: cimple.snapshot.core.CimpleSnapshot,
@@ -258,34 +251,6 @@ class PkgOps:
             for binary_id, binary_data in config.binaries.items()
         }
 
-    def _build_cygwin_pkg(
-        self,
-        pkg_config: pkg_config_models.PkgConfigCygwin,
-    ) -> dict[str, pathlib.Path]:
-        # Download and parse Cygwin release file
-        self.initialize_cygwin()
-        assert self.cygwin_release is not None
-        cygwin_install_path = self.cygwin_release.packages[
-            f"{pkg_config.name}-{pkg_config.version}"
-        ].install_path
-
-        # Prepare output directory
-        output_dir = (
-            cimple.constants.cimple_pkg_output_dir / f"{pkg_config.name}-{pkg_config.version}"
-        )
-        cimple.util.clear_path(output_dir)
-
-        # Download Cygwin tarball
-        with tempfile.TemporaryDirectory() as temp_dir:
-            downloaded_install_file = pkg_cygwin.download_cygwin_file(
-                cygwin_install_path, pathlib.Path(temp_dir)
-            )
-
-            # Extract to output directory
-            cimple.tarfile.extract(downloaded_install_file, output_dir)
-
-        return {pkg_config.name: output_dir}
-
     def build_pkg(
         self,
         package_id: pkg_models.SrcPkgId,
@@ -300,24 +265,17 @@ class PkgOps:
 
         cimple.logging.info("Building package %s-%s", package_id.name, package_version)
 
-        match config.root.pkg_type:
-            case "custom":
-                # NOTE: package ID has to be provided separately because bootstrap packages have
-                # different package IDs (`bootstrap:` variant + normal variant), but they share the
-                # same config file
-                return self._build_custom_pkg(
-                    package_id,
-                    config.root,
-                    cimple_snapshot=cimple_snapshot,
-                    pi_path=pi_path,
-                    build_options=build_options,
-                    bootstrap=bootstrap,
-                )
-            case "cygwin":
-                assert not bootstrap, "Bootstrap packages cannot be of type cygwin"
-                return self._build_cygwin_pkg(
-                    config.root,
-                )
+        # NOTE: package ID has to be provided separately because bootstrap packages have
+        # different package IDs (`bootstrap:` variant + normal variant), but they share the
+        # same config file
+        return self._build_pkg(
+            package_id,
+            config,
+            cimple_snapshot=cimple_snapshot,
+            pi_path=pi_path,
+            build_options=build_options,
+            bootstrap=bootstrap,
+        )
 
     def resolve_dependencies(
         self,
@@ -329,52 +287,34 @@ class PkgOps:
     ) -> cimple.pkg.core.PackageDependencies:
         config = pkg_config_models.load_pkg_config(pi_path, package_id, package_version)
         # Currently only custom packages are possibly bootstrap packages
-        if config.root.pkg_type == "custom":
-            if is_bootstrap:
-                build_depends: dict[pkg_models.SrcPkgId, list[pkg_models.BinPkgId]] = {}
-                depends: dict[pkg_models.BinPkgId, list[pkg_models.BinPkgId]] = {}
+        if is_bootstrap:
+            build_depends: dict[pkg_models.SrcPkgId, list[pkg_models.BinPkgId]] = {}
+            depends: dict[pkg_models.BinPkgId, list[pkg_models.BinPkgId]] = {}
 
-                # Bootstrap packages build depends on packages in the previous snapshot
-                build_depends[cimple.models.pkg.bootstrap_src_id(package_id)] = [
-                    cimple.models.pkg.prev_bin_id(bin_pkg) for bin_pkg in config.root.build_depends
-                ]
-                # Normal packages depend on bootstrap versions of their dependencies
-                build_depends[package_id] = [
-                    cimple.models.pkg.bootstrap_bin_id(bin_pkg)
-                    for bin_pkg in config.root.build_depends
-                ]
+            # Bootstrap packages build depends on packages in the previous snapshot
+            build_depends[cimple.models.pkg.bootstrap_src_id(package_id)] = [
+                cimple.models.pkg.prev_bin_id(bin_pkg) for bin_pkg in config.build_depends
+            ]
+            # Normal packages depend on bootstrap versions of their dependencies
+            build_depends[package_id] = [
+                cimple.models.pkg.bootstrap_bin_id(bin_pkg) for bin_pkg in config.build_depends
+            ]
 
-                for bin_pkg, bin_pkg_data in config.root.binaries.items():
-                    # Bootstrap packages depend on other bootstrap packages
-                    depends.update(
-                        {
-                            cimple.models.pkg.bootstrap_bin_id(bin_pkg): [
-                                cimple.models.pkg.bootstrap_bin_id(dep)
-                                for dep in bin_pkg_data.depends
-                            ]
-                        }
-                    )
-                    # Normal packages depend on other normal packages
-                    depends[bin_pkg] = bin_pkg_data.depends
-            else:
-                depends: dict[pkg_models.BinPkgId, list[pkg_models.BinPkgId]] = {
-                    bin_pkg: bin_pkg_data.depends
-                    for bin_pkg, bin_pkg_data in config.root.binaries.items()
-                }
-                build_depends = {package_id: config.root.build_depends}
-        elif config.root.pkg_type == "cygwin":
-            self.initialize_cygwin()
-            assert self.cygwin_release is not None
-            pkg_full_name = f"{config.root.name}-{config.root.version}"
-            if pkg_full_name not in self.cygwin_release.packages:
-                raise RuntimeError(f"Package {pkg_full_name} not found in Cygwin release.")
-            pkg_info = self.cygwin_release.packages[pkg_full_name]
-            depends = {
-                pkg_models.BinPkgId(package_id.name): [
-                    pkg_models.BinPkgId(dep) for dep in pkg_info.depends
-                ]
-            }
-            build_depends = {package_id: []}
+            for bin_pkg, bin_pkg_data in config.binaries.items():
+                # Bootstrap packages depend on other bootstrap packages
+                depends.update(
+                    {
+                        cimple.models.pkg.bootstrap_bin_id(bin_pkg): [
+                            cimple.models.pkg.bootstrap_bin_id(dep) for dep in bin_pkg_data.depends
+                        ]
+                    }
+                )
+                # Normal packages depend on other normal packages
+                depends[bin_pkg] = bin_pkg_data.depends
         else:
-            raise RuntimeError(f"Unknown package type {config.root.pkg_type}")
+            depends: dict[pkg_models.BinPkgId, list[pkg_models.BinPkgId]] = {
+                bin_pkg: bin_pkg_data.depends for bin_pkg, bin_pkg_data in config.binaries.items()
+            }
+            build_depends = {package_id: config.build_depends}
+
         return cimple.pkg.core.PackageDependencies(build_depends=build_depends, depends=depends)
