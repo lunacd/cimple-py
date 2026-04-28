@@ -1,5 +1,6 @@
 import typer
 
+import cimple.cmd.run_rules
 import cimple.cmd.snapshot
 import cimple.cmd.stream
 import cimple.images as images
@@ -7,6 +8,7 @@ import cimple.images as images
 app = typer.Typer()
 app.add_typer(cimple.cmd.snapshot.snapshot_app, name="snapshot")
 app.add_typer(cimple.cmd.stream.stream_app, name="stream")
+app.add_typer(cimple.cmd.run_rules.run_rules_app, name="run-rules")
 
 
 @app.command()

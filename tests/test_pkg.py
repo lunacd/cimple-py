@@ -126,7 +126,7 @@ class TestPkgOps:
             pi_path=cimple_pi,
             cimple_snapshot=cimple_snapshot,
             build_options=pkg_ops.PackageBuildOptions(
-                parallel=2, extra_paths=[pathlib.Path("/extra/path")]
+                parallel=2, extra_paths=["/extra/path,bin"]
             ),
         )
 
@@ -159,7 +159,7 @@ class TestPkgOps:
             pi_path=cimple_pi,
             cimple_snapshot=cimple_snapshot,
             build_options=pkg_ops.PackageBuildOptions(
-                parallel=2, extra_paths=[pathlib.Path("/extra/path")]
+                parallel=2, extra_paths=["/extra/path,bin"]
             ),
         )
 

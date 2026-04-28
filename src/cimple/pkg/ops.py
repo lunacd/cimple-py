@@ -9,6 +9,7 @@ import cimple.constants
 import cimple.hash
 import cimple.logging
 import cimple.models.pkg
+import cimple.models.pkg_config
 import cimple.pkg.core
 import cimple.process
 import cimple.snapshot.core
@@ -27,7 +28,7 @@ if typing.TYPE_CHECKING:
 @dataclasses.dataclass
 class PackageBuildOptions:
     parallel: int = 1
-    extra_paths: list[pathlib.Path] = dataclasses.field(default_factory=list)
+    extra_paths: list[str] = dataclasses.field(default_factory=list)
 
 
 class PkgOps:
@@ -103,11 +104,6 @@ class PkgOps:
     ) -> dict[str, pathlib.Path]:
         # Prepare chroot image
         cimple.logging.info("Preparing image")
-        # TODO: support multiple platforms and arch
-        if config.input.image_type is None:
-            image_path = None
-        else:
-            image_path = images.prepare_image("windows", "x86_64", config.input.image_type)
 
         # Ensure needed directories exist
         cimple.util.ensure_path(cimple.constants.cimple_orig_dir)
@@ -193,55 +189,80 @@ class PkgOps:
         cimple.logging.info("Starting build")
 
         # TODO: built-in variables will likely need a more organized way to pass around
-        cimple_builtin_variables: dict[str, str] = {
+        builtin_variables: dict[str, str] = {
             "cimple_output_dir": output_dir.as_posix(),
             "cimple_build_dir": build_dir.as_posix(),
-            "cimple_image_dir": "" if image_path is None else image_path.as_posix(),
             "cimple_deps_dir": deps_dir.as_posix(),
             "cimple_parallelism": str(build_options.parallel),
         }
         # TODO: remove hard-coded platform and arch
-        cimple_builtin_variables.update(
+        builtin_variables.update(
             images.ops.get_image_specific_builtin_variables(
-                "windows", "x86_64", config.input.image_type, cimple_builtin_variables
+                "windows", "x86_64", config.input.image_type, builtin_variables
             )
         )
 
         def interpolate_variables(input_str: str):
-            return cimple.str_interpolation.interpolate(input_str, cimple_builtin_variables)
+            return cimple.str_interpolation.interpolate(input_str, builtin_variables)
 
-        # TODO: support overriding rules per-platform
-        for rule in config.rules.default:
-            if isinstance(rule, str):
-                cmd: list[str] = rule.split(" ")
-                cwd = build_dir
-                env = {}
-            else:
-                cmd = rule.rule if isinstance(rule.rule, list) else rule.rule.split(" ")
-                # TODO: Check to make sure cwd is valid and relative
-                cwd = build_dir / interpolate_variables(rule.cwd) if rule.cwd else build_dir
-                env = rule.env if rule.env else {}
-
-            interpolated_cmd: list[str] = []
-            interpolated_env: dict[str, str] = {}
-
-            for cmd_item in cmd:
-                interpolated_cmd.append(interpolate_variables(cmd_item))
-            for env_key, env_val in env.items():
-                interpolated_env[interpolate_variables(env_key)] = interpolate_variables(env_val)
-
-            process = cimple.process.run_command(
-                interpolated_cmd,
-                image_path=image_path,
-                dependency_path=deps_dir,
-                cwd=cwd,
-                env=interpolated_env,
-                extra_paths=build_options.extra_paths,
-            )
-            if process.returncode != 0:
-                raise RuntimeError(
-                    f"Failed executing {' '.join(cmd)}, return code {process.returncode}."
+        # Start execution container
+        # TODO: Take container name from platform & arch
+        mounts: list[cimple.process.OciMount] = []
+        bin_paths: list[pathlib.Path] = []
+        for index, extra_path in enumerate(build_options.extra_paths):
+            host_path, bin_dir = extra_path.split(",")
+            target_path = pathlib.Path("C:/cimple-extra-paths") / str(index)
+            container_bin_dir = target_path / bin_dir
+            mounts.append(
+                cimple.process.OciMount(
+                    source=pathlib.Path(host_path), target=target_path, read_only=True
                 )
+            )
+            bin_paths.append(container_bin_dir)
+
+        with tempfile.TemporaryDirectory() as temp_data_dir:
+            temp_data_dir_path = pathlib.Path(temp_data_dir)
+            rules_file_path = temp_data_dir_path / "rules.json"
+            normalized_rules = cimple.models.pkg_config.normalize_rules(
+                config.rules,
+                default_cwd=build_dir,
+                builtin_variables=builtin_variables,
+                bin_paths=bin_paths,
+            )
+            with rules_file_path.open("w") as rules_file:
+                rules_file.write(normalized_rules.model_dump_json())
+
+            cimple.logging.debug(
+                "Normalized rules file content: %s", normalized_rules.model_dump_json(indent=2)
+            )
+
+            container_id = cimple.process.start_container(
+                "cimple-windows-x86_64",
+                [
+                    cimple.process.OciMount(
+                        source=build_dir, target=pathlib.Path("C:/cimple-build")
+                    ),
+                    cimple.process.OciMount(
+                        source=output_dir, target=pathlib.Path("C:/cimple-output")
+                    ),
+                    cimple.process.OciMount(source=deps_dir, target=pathlib.Path("C:/cimple-root")),
+                    cimple.process.OciMount(
+                        source=temp_data_dir_path,
+                        target=pathlib.Path("C:/cimple-data"),
+                        read_only=True,
+                    ),
+                    *mounts,
+                ],
+            )
+
+            build_process = cimple.process.run_command_in_container(
+                container_id,
+                ["uv", "run", "cimple", "run-rules", "run", "C:/cimple-data/rules.json"],
+            )
+            if build_process.returncode != 0:
+                raise RuntimeError("Failed to build package")
+
+            cimple.process.stop_container(container_id)
 
         cimple.logging.info("Build result is available in %s", output_dir)
         return {
