@@ -188,9 +188,9 @@ class PkgOps:
 
         # TODO: built-in variables will likely need a more organized way to pass around
         builtin_variables: dict[str, str] = {
-            "cimple_output_dir": output_dir.as_posix(),
-            "cimple_build_dir": build_dir.as_posix(),
-            "cimple_deps_dir": deps_dir.as_posix(),
+            "cimple_output_dir": "C:/cimple-output",
+            "cimple_build_dir": "C:/cimple-build",
+            "cimple_deps_dir": "C:/cimple-root",
             "cimple_parallelism": str(build_options.parallel),
         }
         # TODO: remove hard-coded platform and arch
@@ -223,7 +223,7 @@ class PkgOps:
             rules_file_path = temp_data_dir_path / "rules.json"
             normalized_rules = cimple.models.pkg_config.normalize_rules(
                 config.rules,
-                default_cwd=build_dir,
+                default_cwd=pathlib.Path("C:/cimple-build"),
                 builtin_variables=builtin_variables,
                 bin_paths=bin_paths,
             )
@@ -253,14 +253,15 @@ class PkgOps:
                 ],
             )
 
-            build_process = cimple.process.run_command_in_container(
-                container_id,
-                ["uv", "run", "cimple", "run-rules", "run", "C:/cimple-data/rules.json"],
-            )
-            if build_process.returncode != 0:
-                raise RuntimeError("Failed to build package")
-
-            cimple.process.stop_container(container_id)
+            try:
+                build_process = cimple.process.run_command_in_container(
+                    container_id,
+                    ["uv", "run", "cimple", "run-rules", "run", "C:/cimple-data/rules.json"],
+                )
+                if build_process.returncode != 0:
+                    raise RuntimeError("Failed to build package")
+            finally:
+                cimple.process.stop_container(container_id)
 
         cimple.logging.info("Build result is available in %s", output_dir)
         return {
