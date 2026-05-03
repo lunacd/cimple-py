@@ -1,4 +1,5 @@
 import dataclasses
+import os
 import subprocess
 import typing
 
@@ -30,6 +31,11 @@ def start_container(image: str, mounts: list[OciMount]) -> str:
             f"{',readonly' if mount.read_only else ''}"
         )
 
+    env_flags: list[str] = []
+    if os.environ.get("CIMPLE_DEBUG") == "true":
+        env_flags.append("--env")
+        env_flags.append("CIMPLE_DEBUG=true")
+
     if cimple.system.is_windows():
         # A build can take a maximum of 2 hours
         docker_process = subprocess.run(
@@ -38,6 +44,7 @@ def start_container(image: str, mounts: list[OciMount]) -> str:
                 "run",
                 "-d",
                 *mount_flags,
+                *env_flags,
                 image,
                 "powershell",
                 "-Command",
