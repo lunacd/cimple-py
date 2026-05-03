@@ -11,7 +11,15 @@ requires-python = ">=3.14"
 dependencies = ["pydantic", "typer", "requests", "patch-ng", "networkx"]
 
 [dependency-groups]
-dev = ["pytest", "pytest-cov", "pytest-mock", "ruff", "pyfakefs", "pyrefly"]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "pytest-mock",
+    "ruff",
+    "pyfakefs",
+    "pyrefly",
+    "types-requests>=2.33.0.20260408",
+]
 
 [project.scripts]
 cimple = "cimple.main:main"

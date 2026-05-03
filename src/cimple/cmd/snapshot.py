@@ -19,7 +19,12 @@ def change(
     pkg_index: typing.Annotated[str, typer.Option()],
     parallel: typing.Annotated[int, typer.Option(help="Number of parallel jobs")] = 1,
     extra_paths: typing.Annotated[
-        list[pathlib.Path] | None, typer.Option("--dangerously-add-extra-bin-path")
+        list[str] | None,
+        typer.Option(
+            "--dangerously-mount-volume",
+            help="Format is hostpath,binpath. For example, passing C:\\foo,bin makes C:\\foo"
+            " available in the build sandbox, and exposes C:\\foo\\bin in PATH.",
+        ),
     ] = None,
 ):
     if extra_paths is None:

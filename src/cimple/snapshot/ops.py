@@ -27,7 +27,7 @@ def execute_build_graph(
     pkg_processor: pkg_ops.PkgOps,
     pkg_index_path: pathlib.Path,
     parallel: int,
-    extra_paths: list[pathlib.Path] | None = None,
+    extra_paths: list[str] | None = None,
 ):
     """
     Execute the build graph.
@@ -81,7 +81,7 @@ def process_changes(
     *,
     pkg_index_path: pathlib.Path,
     parallel: int,
-    extra_paths: list[pathlib.Path] | None = None,
+    extra_paths: list[str] | None = None,
 ) -> None:
     """
     Process snapshot changes (add, remove, update).
